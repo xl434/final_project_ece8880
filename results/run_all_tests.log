@@ -1,0 +1,19 @@
+== build (log: results/test_logs/build.log) ==
+== L1: CPU reference vs Hugging Face ==
+L1_cpu_vs_hf                   PASS  (11s)  CPU vs golden: PASS
+== L2: each kernel vs CPU reference (software simulation) ==
+L2_kernel_gemv                 PASS  (3s)  gemv: 6 passed, 0 failed -> PASS
+L2_kernel_layernorm            PASS  (0s)  layernorm: 6 passed, 0 failed -> PASS
+L2_kernel_gelu                 PASS  (0s)  gelu: 4 passed, 0 failed -> PASS
+L2_kernel_residual             PASS  (0s)  residual: 3 passed, 0 failed -> PASS
+L2_kernel_attention            PASS  (4s)  attention: 10 passed, 0 failed -> PASS
+L2_kernel_lm_head              PASS  (3s)  lm_head: 6 passed, 0 failed -> PASS
+== L3: one transformer block from kernels vs CPU reference ==
+L3_block_fused                 PASS  (5s)  block_test: 20 passed, 0 failed -> PASS
+L3_block_unfused_residual      PASS  (7s)  block_test (unfused residual): 20 passed, 0 failed -> PASS
+== L4: whole model on kernels, token IDs vs Hugging Face ==
+L4_e2e_8tok_cpu_fallback       PASS  (493s)  token IDs vs golden: 8/8 match -> PASS
+L4_e2e_8tok_unfused            PASS  (542s)  token IDs vs golden: 8/8 match -> PASS
+L4_e2e_32tok_all_kernels       PASS  (1628s)  token IDs vs golden: 32/32 match -> PASS
+== summary: 12 passed, 0 failed (results/test_summary.md) ==
+tests/run_all_tests  13878.78s user 6506.21s system 738% cpu 45:58.85 total

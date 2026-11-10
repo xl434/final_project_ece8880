@@ -1,0 +1,12 @@
+loaded /home/coder/final_project_ece8880/models/gpt2_124M.bin: 124475904 parameters (497.9 MB FP32) in 337 ms
+cpu_model: AMD EPYC 7713 64-Core Processor
+omp_max_threads: 8 (online cpus usable by this process: 8)
+compiler: g++ 13.3.0
+cxxflags: -O3 -march=native -fopenmp -std=c++17 -Wall
+threads 1 ctx  128: prefill   96 tok   2262.84 ms (   42.4 tok/s) | decode   27.14 ms/tok ( 36.84 tok/s)
+threads 1 ctx  512: prefill  480 tok  12064.49 ms (   39.8 tok/s) | decode   31.21 ms/tok ( 32.04 tok/s)
+threads 1 ctx 1024: prefill  992 tok  27382.27 ms (   36.2 tok/s) | decode   38.57 ms/tok ( 25.93 tok/s)
+threads 8 ctx  128: prefill   96 tok    829.37 ms (  115.8 tok/s) | decode   18.98 ms/tok ( 52.67 tok/s)
+threads 8 ctx  512: prefill  480 tok   3550.79 ms (  135.2 tok/s) | decode   22.31 ms/tok ( 44.82 tok/s)
+threads 8 ctx 1024: prefill  992 tok   7771.84 ms (  127.6 tok/s) | decode   25.57 ms/tok ( 39.10 tok/s)
+wrote /home/coder/final_project_ece8880/results/cpu_profile_summary.csv, cpu_profile_ops.csv, cpu_env.txt

@@ -1,0 +1,152 @@
+# file dtype shape...  (raw little-endian, C order)
+prompt_ids.i32 int32 5
+output_ids.i32 int32 32
+acts/embed.f32 float32 768
+acts/l00_attproj.f32 float32 768
+acts/l00_atty.f32 float32 768
+acts/l00_fch.f32 float32 3072
+acts/l00_fch_gelu.f32 float32 3072
+acts/l00_fcproj.f32 float32 768
+acts/l00_ln1.f32 float32 768
+acts/l00_ln2.f32 float32 768
+acts/l00_qkv.f32 float32 2304
+acts/l00_res1.f32 float32 768
+acts/l00_res2.f32 float32 768
+acts/l01_attproj.f32 float32 768
+acts/l01_atty.f32 float32 768
+acts/l01_fch.f32 float32 3072
+acts/l01_fch_gelu.f32 float32 3072
+acts/l01_fcproj.f32 float32 768
+acts/l01_ln1.f32 float32 768
+acts/l01_ln2.f32 float32 768
+acts/l01_qkv.f32 float32 2304
+acts/l01_res1.f32 float32 768
+acts/l01_res2.f32 float32 768
+acts/l02_attproj.f32 float32 768
+acts/l02_atty.f32 float32 768
+acts/l02_fch.f32 float32 3072
+acts/l02_fch_gelu.f32 float32 3072
+acts/l02_fcproj.f32 float32 768
+acts/l02_ln1.f32 float32 768
+acts/l02_ln2.f32 float32 768
+acts/l02_qkv.f32 float32 2304
+acts/l02_res1.f32 float32 768
+acts/l02_res2.f32 float32 768
+acts/l03_attproj.f32 float32 768
+acts/l03_atty.f32 float32 768
+acts/l03_fch.f32 float32 3072
+acts/l03_fch_gelu.f32 float32 3072
+acts/l03_fcproj.f32 float32 768
+acts/l03_ln1.f32 float32 768
+acts/l03_ln2.f32 float32 768
+acts/l03_qkv.f32 float32 2304
+acts/l03_res1.f32 float32 768
+acts/l03_res2.f32 float32 768
+acts/l04_attproj.f32 float32 768
+acts/l04_atty.f32 float32 768
+acts/l04_fch.f32 float32 3072
+acts/l04_fch_gelu.f32 float32 3072
+acts/l04_fcproj.f32 float32 768
+acts/l04_ln1.f32 float32 768
+acts/l04_ln2.f32 float32 768
+acts/l04_qkv.f32 float32 2304
+acts/l04_res1.f32 float32 768
+acts/l04_res2.f32 float32 768
+acts/l05_attproj.f32 float32 768
+acts/l05_atty.f32 float32 768
+acts/l05_fch.f32 float32 3072
+acts/l05_fch_gelu.f32 float32 3072
+acts/l05_fcproj.f32 float32 768
+acts/l05_ln1.f32 float32 768
+acts/l05_ln2.f32 float32 768
+acts/l05_qkv.f32 float32 2304
+acts/l05_res1.f32 float32 768
+acts/l05_res2.f32 float32 768
+acts/l06_attproj.f32 float32 768
+acts/l06_atty.f32 float32 768
+acts/l06_fch.f32 float32 3072
+acts/l06_fch_gelu.f32 float32 3072
+acts/l06_fcproj.f32 float32 768
+acts/l06_ln1.f32 float32 768
+acts/l06_ln2.f32 float32 768
+acts/l06_qkv.f32 float32 2304
+acts/l06_res1.f32 float32 768
+acts/l06_res2.f32 float32 768
+acts/l07_attproj.f32 float32 768
+acts/l07_atty.f32 float32 768
+acts/l07_fch.f32 float32 3072
+acts/l07_fch_gelu.f32 float32 3072
+acts/l07_fcproj.f32 float32 768
+acts/l07_ln1.f32 float32 768
+acts/l07_ln2.f32 float32 768
+acts/l07_qkv.f32 float32 2304
+acts/l07_res1.f32 float32 768
+acts/l07_res2.f32 float32 768
+acts/l08_attproj.f32 float32 768
+acts/l08_atty.f32 float32 768
+acts/l08_fch.f32 float32 3072
+acts/l08_fch_gelu.f32 float32 3072
+acts/l08_fcproj.f32 float32 768
+acts/l08_ln1.f32 float32 768
+acts/l08_ln2.f32 float32 768
+acts/l08_qkv.f32 float32 2304
+acts/l08_res1.f32 float32 768
+acts/l08_res2.f32 float32 768
+acts/l09_attproj.f32 float32 768
+acts/l09_atty.f32 float32 768
+acts/l09_fch.f32 float32 3072
+acts/l09_fch_gelu.f32 float32 3072
+acts/l09_fcproj.f32 float32 768
+acts/l09_ln1.f32 float32 768
+acts/l09_ln2.f32 float32 768
+acts/l09_qkv.f32 float32 2304
+acts/l09_res1.f32 float32 768
+acts/l09_res2.f32 float32 768
+acts/l10_attproj.f32 float32 768
+acts/l10_atty.f32 float32 768
+acts/l10_fch.f32 float32 3072
+acts/l10_fch_gelu.f32 float32 3072
+acts/l10_fcproj.f32 float32 768
+acts/l10_ln1.f32 float32 768
+acts/l10_ln2.f32 float32 768
+acts/l10_qkv.f32 float32 2304
+acts/l10_res1.f32 float32 768
+acts/l10_res2.f32 float32 768
+acts/l11_attproj.f32 float32 768
+acts/l11_atty.f32 float32 768
+acts/l11_fch.f32 float32 3072
+acts/l11_fch_gelu.f32 float32 3072
+acts/l11_fcproj.f32 float32 768
+acts/l11_ln1.f32 float32 768
+acts/l11_ln2.f32 float32 768
+acts/l11_qkv.f32 float32 2304
+acts/l11_res1.f32 float32 768
+acts/l11_res2.f32 float32 768
+acts/lnf.f32 float32 768
+acts/l00_k.f32 float32 6 768
+acts/l00_v.f32 float32 6 768
+acts/l01_k.f32 float32 6 768
+acts/l01_v.f32 float32 6 768
+acts/l02_k.f32 float32 6 768
+acts/l02_v.f32 float32 6 768
+acts/l03_k.f32 float32 6 768
+acts/l03_v.f32 float32 6 768
+acts/l04_k.f32 float32 6 768
+acts/l04_v.f32 float32 6 768
+acts/l05_k.f32 float32 6 768
+acts/l05_v.f32 float32 6 768
+acts/l06_k.f32 float32 6 768
+acts/l06_v.f32 float32 6 768
+acts/l07_k.f32 float32 6 768
+acts/l07_v.f32 float32 6 768
+acts/l08_k.f32 float32 6 768
+acts/l08_v.f32 float32 6 768
+acts/l09_k.f32 float32 6 768
+acts/l09_v.f32 float32 6 768
+acts/l10_k.f32 float32 6 768
+acts/l10_v.f32 float32 6 768
+acts/l11_k.f32 float32 6 768
+acts/l11_v.f32 float32 6 768
+decode0_logits.f32 float32 50257
+long_prompt_ids.i32 int32 992
+long_output_ids.i32 int32 32

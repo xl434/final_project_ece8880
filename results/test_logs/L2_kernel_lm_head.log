@@ -1,0 +1,15 @@
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+I20261107 23:13:26.987299 756339 task.h:122] running software simulation with TAPA library
+I20261107 23:13:28.095175 756339 task.h:122] running software simulation with TAPA library
+I20261107 23:13:28.818058 756339 task.h:122] running software simulation with TAPA library
+LmHeadKernel: 8 ports x 16 rows, mode: software simulation
+real_decode0: kernel id 6466 logit -108.323097 | cpu id 6466 logit -108.323074 (574441 us)
+  real_decode0 argmax    PASS
+  real_decode0 max logit n=1       max_abs=2.289e-05 max_rel=2.113e-07 norm_rel=2.113e-07 |ref|max=1.083e+02  PASS
+tie_100_40000: kernel id 100 logit 1037.007812 | cpu id 100 logit 1037.007690 (479763 us)
+  tie_100_40000 argmax   PASS
+  tie_100_40000 max logit n=1       max_abs=1.221e-04 max_rel=1.177e-07 norm_rel=1.177e-07 |ref|max=1.037e+03  PASS
+max_at_last_row: kernel id 50256 logit 1037.007812 | cpu id 50256 logit 1037.007690 (563613 us)
+  max_at_last_row argmax PASS
+  max_at_last_row max logit n=1       max_abs=1.221e-04 max_rel=1.177e-07 norm_rel=1.177e-07 |ref|max=1.037e+03  PASS
+lm_head: 6 passed, 0 failed -> PASS

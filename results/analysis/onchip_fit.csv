@@ -1,0 +1,9 @@
+tensor,params_M,MB_FP32,fits_FP32,double_buf_FP32,MB_FP16,fits_FP16,double_buf_FP16,MB_INT8,fits_INT8,double_buf_INT8
+one block,7.087872,28.351488,yes,no,14.175744,yes,yes,7.087872,yes,yes
+qkv_matmul,1.769472,7.077888,yes,yes,3.538944,yes,yes,1.769472,yes,yes
+fc_matmul,2.359296,9.437184,yes,yes,4.718592,yes,yes,2.359296,yes,yes
+fcproj_matmul,2.359296,9.437184,yes,yes,4.718592,yes,yes,2.359296,yes,yes
+attproj_matmul,0.589824,2.359296,yes,yes,1.179648,yes,yes,0.589824,yes,yes
+12 blocks,85.054464,340.217856,no,no,170.108928,no,no,85.054464,no,no
+lm_head (wte),38.597376,154.389504,no,no,77.194752,no,no,38.597376,yes,no
+whole model (incl. wpe),124.439808,497.759232,no,no,248.879616,no,no,124.439808,no,no

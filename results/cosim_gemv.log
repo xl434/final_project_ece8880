@@ -1,0 +1,99 @@
+env -u XILINX_XRT ./tb --bitstream=./gemv.xo 
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+I20261107 17:47:14.471791 140478 frt.cpp:22] Loading ./gemv.xo
+I20261107 17:47:14.501148 140478 tapa_fast_cosim_device.cpp:122] Running hardware simulation with TAPA fast cosim
+I1107 17:47:16.926 tapa.util:162] logging level set to INFO
+I1107 17:47:16.927 __main__:90] tapa version: 0.1.20250815
+I1107 17:47:16.927 tapa.cosim.__main__:169] TAPA fast cosim version: 0.1.20250815
+I1107 17:47:20.053 tapa.cosim.vivado:30] Vivado version: 2024.2
+I1107 17:47:20.055 tapa.cosim.__main__:257] Starting Vivado:
+I1107 17:47:20.059 tapa.cosim.__main__:258]    Command: vivado -mode batch -source run_cosim.tcl
+I1107 17:47:20.059 tapa.cosim.__main__:259]    Working directory: /tmp/tapa-fast-cosim.QIqDap/output/run
+I1107 17:47:20.059 tapa.cosim.__main__:260]    Stdout: /tmp/tapa-fast-cosim.QIqDap/output/cosim.stdout.log
+I1107 17:47:20.059 tapa.cosim.__main__:261]    Stderr: /tmp/tapa-fast-cosim.QIqDap/output/cosim.stderr.log
+I1107 18:22:02.622 tapa.cosim.__main__:299] Vivado simulation finished successfully
+I20261107 18:22:02.717378 140478 tapa_fast_cosim_device.cpp:380] TAPA fast cosim finished successfully
+I20261107 18:22:02.773898 140478 frt.cpp:22] Loading ./gemv.xo
+I20261107 18:22:02.776734 140478 tapa_fast_cosim_device.cpp:122] Running hardware simulation with TAPA fast cosim
+I1107 18:22:03.228 tapa.util:162] logging level set to INFO
+I1107 18:22:03.229 __main__:90] tapa version: 0.1.20250815
+I1107 18:22:03.229 tapa.cosim.__main__:169] TAPA fast cosim version: 0.1.20250815
+I1107 18:22:04.418 tapa.cosim.vivado:30] Vivado version: 2024.2
+I1107 18:22:04.419 tapa.cosim.__main__:257] Starting Vivado:
+I1107 18:22:04.419 tapa.cosim.__main__:258]    Command: vivado -mode batch -source run_cosim.tcl
+I1107 18:22:04.419 tapa.cosim.__main__:259]    Working directory: /tmp/tapa-fast-cosim.2IOq09/output/run
+I1107 18:22:04.419 tapa.cosim.__main__:260]    Stdout: /tmp/tapa-fast-cosim.2IOq09/output/cosim.stdout.log
+I1107 18:22:04.419 tapa.cosim.__main__:261]    Stderr: /tmp/tapa-fast-cosim.2IOq09/output/cosim.stderr.log
+I1107 18:30:45.094 tapa.cosim.__main__:299] Vivado simulation finished successfully
+I20261107 18:30:45.256383 140478 tapa_fast_cosim_device.cpp:380] TAPA fast cosim finished successfully
+I20261107 18:30:45.321064 140478 frt.cpp:22] Loading ./gemv.xo
+I20261107 18:30:45.324750 140478 tapa_fast_cosim_device.cpp:122] Running hardware simulation with TAPA fast cosim
+I1107 18:30:45.802 tapa.util:162] logging level set to INFO
+I1107 18:30:45.803 __main__:90] tapa version: 0.1.20250815
+I1107 18:30:45.803 tapa.cosim.__main__:169] TAPA fast cosim version: 0.1.20250815
+I1107 18:30:46.988 tapa.cosim.vivado:30] Vivado version: 2024.2
+I1107 18:30:46.989 tapa.cosim.__main__:257] Starting Vivado:
+I1107 18:30:46.989 tapa.cosim.__main__:258]    Command: vivado -mode batch -source run_cosim.tcl
+I1107 18:30:46.989 tapa.cosim.__main__:259]    Working directory: /tmp/tapa-fast-cosim.gTZW8K/output/run
+I1107 18:30:46.989 tapa.cosim.__main__:260]    Stdout: /tmp/tapa-fast-cosim.gTZW8K/output/cosim.stdout.log
+I1107 18:30:46.989 tapa.cosim.__main__:261]    Stderr: /tmp/tapa-fast-cosim.gTZW8K/output/cosim.stderr.log
+I1107 19:04:10.324 tapa.cosim.__main__:299] Vivado simulation finished successfully
+I20261107 19:04:10.402346 140478 tapa_fast_cosim_device.cpp:380] TAPA fast cosim finished successfully
+I20261107 19:04:10.461449 140478 frt.cpp:22] Loading ./gemv.xo
+I20261107 19:04:10.464238 140478 tapa_fast_cosim_device.cpp:122] Running hardware simulation with TAPA fast cosim
+I1107 19:04:14.968 tapa.util:162] logging level set to INFO
+I1107 19:04:14.968 __main__:90] tapa version: 0.1.20250815
+I1107 19:04:14.969 tapa.cosim.__main__:169] TAPA fast cosim version: 0.1.20250815
+I1107 19:04:28.785 tapa.cosim.vivado:30] Vivado version: 2024.2
+I1107 19:04:28.787 tapa.cosim.__main__:257] Starting Vivado:
+I1107 19:04:28.787 tapa.cosim.__main__:258]    Command: vivado -mode batch -source run_cosim.tcl
+I1107 19:04:28.787 tapa.cosim.__main__:259]    Working directory: /tmp/tapa-fast-cosim.K2xfVo/output/run
+I1107 19:04:28.787 tapa.cosim.__main__:260]    Stdout: /tmp/tapa-fast-cosim.K2xfVo/output/cosim.stdout.log
+I1107 19:04:28.787 tapa.cosim.__main__:261]    Stderr: /tmp/tapa-fast-cosim.K2xfVo/output/cosim.stderr.log
+I1107 19:48:02.067 tapa.cosim.__main__:299] Vivado simulation finished successfully
+I20261107 19:48:02.152143 140478 tapa_fast_cosim_device.cpp:380] TAPA fast cosim finished successfully
+I20261107 19:48:02.203732 140478 frt.cpp:22] Loading ./gemv.xo
+I20261107 19:48:02.206614 140478 tapa_fast_cosim_device.cpp:122] Running hardware simulation with TAPA fast cosim
+I1107 19:48:02.635 tapa.util:162] logging level set to INFO
+I1107 19:48:02.635 __main__:90] tapa version: 0.1.20250815
+I1107 19:48:02.636 tapa.cosim.__main__:169] TAPA fast cosim version: 0.1.20250815
+I1107 19:48:03.859 tapa.cosim.vivado:30] Vivado version: 2024.2
+I1107 19:48:03.860 tapa.cosim.__main__:257] Starting Vivado:
+I1107 19:48:03.860 tapa.cosim.__main__:258]    Command: vivado -mode batch -source run_cosim.tcl
+I1107 19:48:03.860 tapa.cosim.__main__:259]    Working directory: /tmp/tapa-fast-cosim.18lgnJ/output/run
+I1107 19:48:03.860 tapa.cosim.__main__:260]    Stdout: /tmp/tapa-fast-cosim.18lgnJ/output/cosim.stdout.log
+I1107 19:48:03.860 tapa.cosim.__main__:261]    Stderr: /tmp/tapa-fast-cosim.18lgnJ/output/cosim.stderr.log
+I1107 19:49:31.940 tapa.cosim.__main__:299] Vivado simulation finished successfully
+I20261107 19:49:32.009384 140478 tapa_fast_cosim_device.cpp:380] TAPA fast cosim finished successfully
+I20261107 19:49:32.066733 140478 frt.cpp:22] Loading ./gemv.xo
+I20261107 19:49:32.069871 140478 tapa_fast_cosim_device.cpp:122] Running hardware simulation with TAPA fast cosim
+I1107 19:49:32.583 tapa.util:162] logging level set to INFO
+I1107 19:49:32.583 __main__:90] tapa version: 0.1.20250815
+I1107 19:49:32.583 tapa.cosim.__main__:169] TAPA fast cosim version: 0.1.20250815
+I1107 19:49:33.821 tapa.cosim.vivado:30] Vivado version: 2024.2
+I1107 19:49:33.822 tapa.cosim.__main__:257] Starting Vivado:
+I1107 19:49:33.823 tapa.cosim.__main__:258]    Command: vivado -mode batch -source run_cosim.tcl
+I1107 19:49:33.823 tapa.cosim.__main__:259]    Working directory: /tmp/tapa-fast-cosim.MuyGic/output/run
+I1107 19:49:33.823 tapa.cosim.__main__:260]    Stdout: /tmp/tapa-fast-cosim.MuyGic/output/cosim.stdout.log
+I1107 19:49:33.823 tapa.cosim.__main__:261]    Stderr: /tmp/tapa-fast-cosim.MuyGic/output/cosim.stderr.log
+I1107 20:01:42.225 tapa.cosim.__main__:299] Vivado simulation finished successfully
+I20261107 20:01:42.313351 140478 tapa_fast_cosim_device.cpp:380] TAPA fast cosim finished successfully
+GemvKernel: 8 ports x 16 rows, mode: TAPA fast cosim (RTL)
+l00_qkv: C=768 OC=2304 residual=0 (2088210994 us)
+  l00_qkv                n=2304    max_abs=9.537e-07 max_rel=3.022e-06 norm_rel=1.335e-07 |ref|max=8.059e+00  PASS
+  [vs HF] l00_qkv        max_abs=4.530e-06 max_rel=5.538e-06 norm_rel=4.334e-07
+l05_attproj+res: C=768 OC=768 residual=1 (522478559 us)
+  l05_attproj+res        n=768     max_abs=4.768e-07 max_rel=7.218e-07 norm_rel=4.267e-08 |ref|max=3.137e+01  PASS
+  [vs HF] l05_res1       max_abs=1.907e-06 max_rel=1.372e-06 norm_rel=1.007e-07
+l11_fc: C=768 OC=3072 residual=0 (2005075073 us)
+  l11_fc                 n=3072    max_abs=1.907e-06 max_rel=2.254e-06 norm_rel=1.504e-07 |ref|max=7.879e+00  PASS
+  [vs HF] l11_fch        max_abs=6.676e-06 max_rel=8.315e-06 norm_rel=4.719e-07
+l11_fcproj+res: C=3072 OC=768 residual=1 (2631685736 us)
+  l11_fcproj+res         n=768     max_abs=1.526e-05 max_rel=1.213e-06 norm_rel=7.524e-08 |ref|max=2.011e+02  PASS
+  [vs HF] l11_res2       max_abs=6.104e-05 max_rel=2.272e-06 norm_rel=2.426e-07
+rand_min_shape: C=16 OC=128 residual=0 (89802094 us)
+  rand_min_shape         n=128     max_abs=4.768e-07 max_rel=1.612e-06 norm_rel=9.506e-08 |ref|max=5.095e+00  PASS
+rand_long_mixed+res: C=3072 OC=256 residual=1 (730241868 us)
+  rand_long_mixed+res    n=256     max_abs=9.766e-04 max_rel=1.704e-05 norm_rel=3.134e-07 |ref|max=2.610e+03  PASS
+gemv: 6 passed, 0 failed -> PASS
+make cosim  7525.92s user 65.92s system 94% cpu 2:14:28.70 total

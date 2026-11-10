@@ -1,0 +1,14 @@
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+I20261107 23:13:22.818871 755538 task.h:122] running software simulation with TAPA library
+I20261107 23:13:22.834434 755538 task.h:122] running software simulation with TAPA library
+I20261107 23:13:22.851481 755538 task.h:122] running software simulation with TAPA library
+I20261107 23:13:22.866416 755538 task.h:122] running software simulation with TAPA library
+GeluKernel, mode: software simulation
+  l00_gelu               n=3072    max_abs=2.384e-07 max_rel=1.238e-06 norm_rel=1.362e-07 |ref|max=3.534e+00  PASS
+  [vs HF] l00_gelu       max_abs=2.384e-07 max_rel=1.013e-06 norm_rel=9.708e-08
+  l05_gelu               n=3072    max_abs=1.192e-07 max_rel=2.216e-06 norm_rel=1.256e-07 |ref|max=1.815e+00  PASS
+  [vs HF] l05_gelu       max_abs=1.192e-07 max_rel=1.847e-06 norm_rel=9.034e-08
+  l11_gelu               n=3072    max_abs=4.768e-07 max_rel=6.147e-07 norm_rel=8.669e-08 |ref|max=6.107e+00  PASS
+  [vs HF] l11_gelu       max_abs=4.768e-07 max_rel=5.170e-07 norm_rel=6.467e-08
+  sweep_-20_20           n=4112    max_abs=4.768e-07 max_rel=1.540e-07 norm_rel=5.779e-09 |ref|max=1.999e+01  PASS
+gelu: 4 passed, 0 failed -> PASS

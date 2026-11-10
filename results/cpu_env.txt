@@ -1,0 +1,4 @@
+cpu_model: AMD EPYC 7713 64-Core Processor
+omp_max_threads: 8 (online cpus usable by this process: 8)
+compiler: g++ 13.3.0
+cxxflags: -O3 -march=native -fopenmp -std=c++17 -Wall

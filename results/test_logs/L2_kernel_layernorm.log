@@ -1,0 +1,20 @@
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+I20261107 23:13:22.667470 755148 task.h:122] running software simulation with TAPA library
+I20261107 23:13:22.685459 755148 task.h:122] running software simulation with TAPA library
+I20261107 23:13:22.700783 755148 task.h:122] running software simulation with TAPA library
+I20261107 23:13:22.715695 755148 task.h:122] running software simulation with TAPA library
+I20261107 23:13:22.732170 755148 task.h:122] running software simulation with TAPA library
+I20261107 23:13:22.749229 755148 task.h:122] running software simulation with TAPA library
+LayerNormKernel, mode: software simulation
+  l00_ln1                n=768     max_abs=5.960e-08 max_rel=2.119e-06 norm_rel=9.608e-08 |ref|max=5.236e-01  PASS
+  [vs HF] l00_ln1        max_abs=5.960e-08 max_rel=2.340e-06 norm_rel=1.095e-07
+  l06_ln2                n=768     max_abs=4.768e-07 max_rel=3.311e-07 norm_rel=1.127e-07 |ref|max=2.940e+00  PASS
+  [vs HF] l06_ln2        max_abs=2.384e-07 max_rel=3.546e-07 norm_rel=6.455e-08
+  l11_ln1                n=768     max_abs=7.153e-07 max_rel=1.306e-06 norm_rel=3.267e-07 |ref|max=2.260e+00  PASS
+  [vs HF] l11_ln1        max_abs=1.192e-07 max_rel=4.077e-07 norm_rel=4.577e-08
+  ln_f                   n=768     max_abs=7.629e-05 max_rel=4.856e-07 norm_rel=3.833e-07 |ref|max=2.037e+02  PASS
+  [vs HF] ln_f           max_abs=2.289e-05 max_rel=2.398e-07 norm_rel=1.257e-07
+  rand_4rows             n=3072    max_abs=4.768e-07 max_rel=2.583e-06 norm_rel=2.216e-07 |ref|max=2.635e+00  PASS
+  rand_offset1000 vs fp64 n=768     max_abs=2.164e-05 max_rel=5.863e-04 norm_rel=1.852e-05 |ref|max=9.000e-01  PASS
+  (info) src/cpu vs fp64: max_abs=5.161e-04; kernel vs src/cpu: max_abs=4.945e-04
+layernorm: 6 passed, 0 failed -> PASS

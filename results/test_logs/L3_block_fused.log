@@ -1,0 +1,57 @@
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+I20261107 23:13:30.528471 756541 task.h:122] running software simulation with TAPA library
+I20261107 23:13:30.544294 756541 task.h:122] running software simulation with TAPA library
+I20261107 23:13:31.171710 756541 task.h:122] running software simulation with TAPA library
+I20261107 23:13:31.222400 756541 task.h:122] running software simulation with TAPA library
+I20261107 23:13:31.450824 756541 task.h:122] running software simulation with TAPA library
+I20261107 23:13:31.465296 756541 task.h:122] running software simulation with TAPA library
+I20261107 23:13:32.159286 756541 task.h:122] running software simulation with TAPA library
+I20261107 23:13:32.174395 756541 task.h:122] running software simulation with TAPA library
+I20261107 23:13:32.688014 756541 task.h:122] running software simulation with TAPA library
+I20261107 23:13:32.702955 756541 task.h:122] running software simulation with TAPA library
+I20261107 23:13:33.340950 756541 task.h:122] running software simulation with TAPA library
+I20261107 23:13:33.388101 756541 task.h:122] running software simulation with TAPA library
+I20261107 23:13:33.734326 756541 task.h:122] running software simulation with TAPA library
+I20261107 23:13:33.751058 756541 task.h:122] running software simulation with TAPA library
+I20261107 23:13:34.061101 756541 task.h:122] running software simulation with TAPA library
+I20261107 23:13:34.077845 756541 task.h:122] running software simulation with TAPA library
+[host] packed weights in 637 ms (GEMV 8 ports x 16 rows, LM head 8 ports)
+block 0, position 5, software simulation:
+  l00_ln1                n=768     max_abs=5.960e-08 max_rel=2.119e-06 norm_rel=9.608e-08 |ref|max=5.236e-01  PASS
+  [vs HF] l00_ln1        max_abs=5.960e-08 max_rel=2.340e-06 norm_rel=1.095e-07
+  l00_qkv                n=2304    max_abs=1.431e-06 max_rel=3.719e-06 norm_rel=1.630e-07 |ref|max=8.059e+00  PASS
+  [vs HF] l00_qkv        max_abs=4.768e-06 max_rel=6.902e-06 norm_rel=4.500e-07
+  l00_atty               n=768     max_abs=2.384e-07 max_rel=3.489e-06 norm_rel=2.080e-07 |ref|max=1.286e+00  PASS
+  [vs HF] l00_atty       max_abs=8.941e-07 max_rel=8.703e-06 norm_rel=4.649e-07
+  l00_res1               n=768     max_abs=2.861e-06 max_rel=3.779e-06 norm_rel=2.251e-07 |ref|max=1.268e+01  PASS
+  [vs HF] l00_res1       max_abs=1.001e-05 max_rel=6.928e-06 norm_rel=6.665e-07
+  l00_ln2                n=768     max_abs=4.768e-07 max_rel=1.048e-05 norm_rel=5.998e-07 |ref|max=1.399e+00  PASS
+  [vs HF] l00_ln2        max_abs=9.537e-07 max_rel=1.714e-05 norm_rel=8.079e-07
+  l00_fch                n=3072    max_abs=2.861e-06 max_rel=1.016e-05 norm_rel=3.154e-07 |ref|max=5.453e+00  PASS
+  [vs HF] l00_fch        max_abs=5.484e-06 max_rel=1.702e-05 norm_rel=5.804e-07
+  l00_fch_gelu           n=3072    max_abs=2.384e-06 max_rel=8.466e-06 norm_rel=7.639e-07 |ref|max=3.534e+00  PASS
+  [vs HF] l00_fch_gelu   max_abs=2.384e-06 max_rel=1.563e-05 norm_rel=8.291e-07
+  l00_res2               n=768     max_abs=1.335e-05 max_rel=4.843e-06 norm_rel=4.129e-07 |ref|max=2.757e+01  PASS
+  [vs HF] l00_res2       max_abs=1.144e-05 max_rel=7.098e-06 norm_rel=4.908e-07
+  l00_kcache             n=4608    max_abs=1.431e-06 max_rel=1.999e-06 norm_rel=7.227e-08 |ref|max=8.059e+00  PASS
+  l00_vcache             n=4608    max_abs=3.576e-07 max_rel=2.073e-06 norm_rel=7.620e-08 |ref|max=2.420e+00  PASS
+block 11, position 5, software simulation:
+  l11_ln1                n=768     max_abs=7.153e-07 max_rel=1.306e-06 norm_rel=3.267e-07 |ref|max=2.260e+00  PASS
+  [vs HF] l11_ln1        max_abs=1.192e-07 max_rel=4.077e-07 norm_rel=4.577e-08
+  l11_qkv                n=2304    max_abs=2.384e-06 max_rel=9.222e-06 norm_rel=3.901e-07 |ref|max=5.592e+00  PASS
+  [vs HF] l11_qkv        max_abs=2.384e-06 max_rel=1.089e-05 norm_rel=5.298e-07
+  l11_atty               n=768     max_abs=4.768e-07 max_rel=4.932e-06 norm_rel=2.569e-07 |ref|max=2.545e+00  PASS
+  [vs HF] l11_atty       max_abs=7.153e-07 max_rel=7.293e-06 norm_rel=2.951e-07
+  l11_res1               n=768     max_abs=3.052e-05 max_rel=4.059e-07 norm_rel=1.213e-07 |ref|max=1.798e+02  PASS
+  [vs HF] l11_res1       max_abs=7.629e-05 max_rel=6.367e-07 norm_rel=2.490e-07
+  l11_ln2                n=768     max_abs=2.384e-07 max_rel=1.463e-06 norm_rel=1.544e-07 |ref|max=2.070e+00  PASS
+  [vs HF] l11_ln2        max_abs=2.384e-07 max_rel=2.209e-06 norm_rel=1.806e-07
+  l11_fch                n=3072    max_abs=1.907e-06 max_rel=2.645e-06 norm_rel=1.984e-07 |ref|max=7.879e+00  PASS
+  [vs HF] l11_fch        max_abs=7.629e-06 max_rel=8.315e-06 norm_rel=4.845e-07
+  l11_fch_gelu           n=3072    max_abs=2.384e-06 max_rel=2.954e-06 norm_rel=3.337e-07 |ref|max=6.107e+00  PASS
+  [vs HF] l11_fch_gelu   max_abs=2.861e-06 max_rel=4.454e-06 norm_rel=5.551e-07
+  l11_res2               n=768     max_abs=3.815e-05 max_rel=1.051e-06 norm_rel=1.645e-07 |ref|max=2.011e+02  PASS
+  [vs HF] l11_res2       max_abs=7.629e-05 max_rel=2.469e-06 norm_rel=3.284e-07
+  l11_kcache             n=4608    max_abs=1.431e-06 max_rel=1.398e-05 norm_rel=1.612e-07 |ref|max=4.420e+00  PASS
+  l11_vcache             n=4608    max_abs=2.384e-06 max_rel=3.531e-06 norm_rel=1.160e-07 |ref|max=1.347e+01  PASS
+block_test: 20 passed, 0 failed -> PASS

@@ -1,0 +1,62 @@
+kernel,level,name,count,latency_cycles,ii,trip_count,est_clock_ns,LUT,FF,DSP,BRAM_18K,URAM
+gemv,task,GemvPE,8,18672,,,2.415,5500,10182,82,8,0
+gemv,loop,GemvPE/VITIS_LOOP_104_1,,194,1,,,,,,,
+gemv,loop,GemvPE/VITIS_LOOP_115_2,,18474,1,18432,,,,,,
+gemv,task,GemvReadW,8,18448,,,2.431,2728,3393,3,15,0
+gemv,loop,GemvReadW/VITIS_LOOP_86_1,,18435,1,18432,,,,,,
+gemv,task,GemvReadX,1,205,,,2.431,2693,3137,0,15,0
+gemv,loop,GemvReadX/VITIS_LOOP_105_1,,195,1,,,,,,,
+gemv,task,GemvWriteY,1,3106,,,2.431,4068,4894,4,3,0
+gemv,loop,GemvWriteY/VITIS_LOOP_142_1,,3091,1,,,,,,,
+gemv,kernel,GemvKernel,1,18672,1,"C=768, OC=3072 (MLP fc layer)",2.431,74353,117621,684,202,0
+layernorm,task,LnCore,1,420,,,2.673,21336,30333,160,30,0
+layernorm,loop,LnCore/VITIS_LOOP_104_4,,85,1,48,,,,,,
+layernorm,loop,LnCore/VITIS_LOOP_117_6,,10,1,8,,,,,,
+layernorm,loop,LnCore/VITIS_LOOP_118_7,,96,1,48,,,,,,
+layernorm,loop,LnCore/VITIS_LOOP_133_9,,73,1,48,,,,,,
+layernorm,loop,LnCore/VITIS_LOOP_91_1,,51,1,48,,,,,,
+layernorm,task,LnReadX,1,64,,,2.431,2630,3376,3,15,0
+layernorm,loop,LnReadX/VITIS_LOOP_73_1,,51,1,48,,,,,,
+layernorm,task,LnWrite,1,62,,,2.431,2639,3364,3,15,0
+layernorm,loop,LnWrite/VITIS_LOOP_84_1,,51,1,48,,,,,,
+layernorm,kernel,LayerNormKernel,1,420,1,"1 row, C=768",2.673,27285,37465,166,60,0
+gelu,task,GeluCore,1,257,,,2.347,25229,33520,416,0,0
+gelu,loop,GeluCore/VITIS_LOOP_76_1,,255,1,192,,,,,,
+gelu,task,GeluRead,1,205,,,2.431,2479,3149,0,15,0
+gelu,loop,GeluRead/VITIS_LOOP_68_1,,195,1,192,,,,,,
+gelu,task,GeluWrite,1,203,,,2.431,2477,3137,0,15,0
+gelu,loop,GeluWrite/VITIS_LOOP_73_1,,195,1,192,,,,,,
+gelu,kernel,GeluKernel,1,257,1,3072 elements,2.431,30545,40020,416,30,0
+residual,task,ResAdd,1,60,,,2.342,3361,6710,32,0,0
+residual,loop,ResAdd/VITIS_LOOP_79_1,,58,1,48,,,,,,
+residual,task,ResRead,2,61,,,2.431,2479,3149,0,15,0
+residual,loop,ResRead/VITIS_LOOP_63_1,,51,1,48,,,,,,
+residual,task,ResWrite,1,59,,,2.431,2477,3137,0,15,0
+residual,loop,ResWrite/VITIS_LOOP_69_1,,51,1,48,,,,,,
+residual,kernel,ResidualKernel,1,61,1,768 elements,2.431,11284,16429,32,45,0
+attention,task,AttnHead,12,12405,,,2.633,18177,39732,205,0,0
+attention,loop,AttnHead/VITIS_LOOP_116_1,,10,1,4,,,,,,
+attention,loop,AttnHead/VITIS_LOOP_124_3,,12367,12,,,,,,,
+attention,loop,AttnHead/VITIS_LOOP_146_6,,10,1,4,,,,,,
+attention,task,AttnKv,1,49229,,,2.431,10088,10668,0,60,0
+attention,loop,AttnKv/VITIS_LOOP_184_1,,51,1,48,,,,,,
+attention,loop,AttnKv/VITIS_LOOP_189_2,,51,1,48,,,,,,
+attention,loop,AttnKv/VITIS_LOOP_196_3,,49107,1,,,,,,,
+attention,loop,AttnKv/VITIS_LOOP_209_5,,50,1,48,,,,,,
+attention,task,AttnReadQkv,1,155,,,2.431,2650,3067,0,15,0
+attention,loop,AttnReadQkv/VITIS_LOOP_127_1,,146,1,144,,,,,,
+attention,task,AttnWrite,1,60,,,2.431,3220,19581,0,15,0
+attention,loop,AttnWrite/VITIS_LOOP_163_1,,53,1,48,,,,,,
+attention,kernel,AttentionKernel,1,49229,12,"pos=1023 (full context), per layer",2.633,234762,510492,2460,90,0
+lm_head,task,LmMerge,1,28,,,2.431,2134,1572,0,2,0
+lm_head,loop,LmMerge/VITIS_LOOP_187_1,,19,2,8,,,,,,
+lm_head,task,LmPE,8,301959,,,2.415,6414,10875,80,8,0
+lm_head,loop,LmPE/VITIS_LOOP_105_1,,50,1,48,,,,,,
+lm_head,loop,LmPE/VITIS_LOOP_114_2,,18,1,16,,,,,,
+lm_head,loop,LmPE/VITIS_LOOP_120_3,,301868,1,301824,,,,,,
+lm_head,loop,LmPE/VITIS_LOOP_148_4,,32,2,15,,,,,,
+lm_head,task,LmReadW,8,301835,,,2.431,2378,3072,0,15,0
+lm_head,loop,LmReadW/VITIS_LOOP_77_1,,301826,1,301824,,,,,,
+lm_head,task,LmReadX,1,59,,,2.431,2480,3059,0,15,0
+lm_head,loop,LmReadX/VITIS_LOOP_98_1,,50,1,48,,,,,,
+lm_head,kernel,LmHeadKernel,1,301959,2,"V=50304 padded rows, C=768 (compile-time)",2.431,76398,117013,640,201,0
