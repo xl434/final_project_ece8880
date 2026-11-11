@@ -10,13 +10,21 @@ BIN := $(ROOT)/build/bin
 HDRS := $(wildcard *.h ../common/*.h ../../data/golden_loader.h)
 
 .DEFAULT_GOAL := cpu_main
-.PHONY: cpu_main generate verify profile clean
+.PHONY: cpu_main generate verify profile peaks clean
 
 $(BIN)/cpu_main: $(SRCS) $(HDRS) Makefile
 	@mkdir -p $(BIN)
 	$(CXX) $(CXXFLAGS) $(DEFS) -o $@ $(SRCS)
 
 cpu_main: $(BIN)/cpu_main
+
+# CPU memory-bandwidth and FP32-compute ceilings -> results/cpu_peaks.csv
+$(BIN)/cpu_peaks: cpu_peaks.cpp ../common/utils.h Makefile
+	@mkdir -p $(BIN)
+	$(CXX) $(CXXFLAGS) $(DEFS) -o $@ cpu_peaks.cpp
+
+peaks: $(BIN)/cpu_peaks
+	$(BIN)/cpu_peaks
 
 generate: $(BIN)/cpu_main
 	$(BIN)/cpu_main generate
@@ -28,4 +36,4 @@ profile: $(BIN)/cpu_main
 	$(BIN)/cpu_main profile --threads 1,8 --ctx 128,512,1024 --reps 3
 
 clean:
-	rm -f $(BIN)/cpu_main
+	rm -f $(BIN)/cpu_main $(BIN)/cpu_peaks

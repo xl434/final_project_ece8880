@@ -1,10 +1,10 @@
 WARNING: Logging before InitGoogleLogging() is written to STDERR
-I20261107 23:13:22.667470 755148 task.h:122] running software simulation with TAPA library
-I20261107 23:13:22.685459 755148 task.h:122] running software simulation with TAPA library
-I20261107 23:13:22.700783 755148 task.h:122] running software simulation with TAPA library
-I20261107 23:13:22.715695 755148 task.h:122] running software simulation with TAPA library
-I20261107 23:13:22.732170 755148 task.h:122] running software simulation with TAPA library
-I20261107 23:13:22.749229 755148 task.h:122] running software simulation with TAPA library
+I20261110 23:12:51.426843 2022170 task.h:122] running software simulation with TAPA library
+I20261110 23:12:51.442482 2022170 task.h:122] running software simulation with TAPA library
+I20261110 23:12:51.456787 2022170 task.h:122] running software simulation with TAPA library
+I20261110 23:12:51.472020 2022170 task.h:122] running software simulation with TAPA library
+I20261110 23:12:51.487780 2022170 task.h:122] running software simulation with TAPA library
+I20261110 23:12:51.504280 2022170 task.h:122] running software simulation with TAPA library
 LayerNormKernel, mode: software simulation
   l00_ln1                n=768     max_abs=5.960e-08 max_rel=2.119e-06 norm_rel=9.608e-08 |ref|max=5.236e-01  PASS
   [vs HF] l00_ln1        max_abs=5.960e-08 max_rel=2.340e-06 norm_rel=1.095e-07

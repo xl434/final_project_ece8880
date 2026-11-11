@@ -48,15 +48,21 @@ attention,loop,AttnReadQkv/VITIS_LOOP_127_1,,146,1,144,,,,,,
 attention,task,AttnWrite,1,60,,,2.431,3220,19581,0,15,0
 attention,loop,AttnWrite/VITIS_LOOP_163_1,,53,1,48,,,,,,
 attention,kernel,AttentionKernel,1,49229,12,"pos=1023 (full context), per layer",2.633,234762,510492,2460,90,0
-lm_head,task,LmMerge,1,28,,,2.431,2134,1572,0,2,0
+lm_head,task,LmMerge,1,33,,,2.431,1482,1014,0,1,0
 lm_head,loop,LmMerge/VITIS_LOOP_187_1,,19,2,8,,,,,,
 lm_head,task,LmPE,8,301959,,,2.415,6414,10875,80,8,0
 lm_head,loop,LmPE/VITIS_LOOP_105_1,,50,1,48,,,,,,
+lm_head,loop,LmPE/VITIS_LOOP_107_1,,50,1,48,,,,,,
 lm_head,loop,LmPE/VITIS_LOOP_114_2,,18,1,16,,,,,,
+lm_head,loop,LmPE/VITIS_LOOP_116_2,,18,1,16,,,,,,
 lm_head,loop,LmPE/VITIS_LOOP_120_3,,301868,1,301824,,,,,,
+lm_head,loop,LmPE/VITIS_LOOP_122_3,,301868,1,301824,,,,,,
 lm_head,loop,LmPE/VITIS_LOOP_148_4,,32,2,15,,,,,,
+lm_head,loop,LmPE/VITIS_LOOP_150_4,,32,2,15,,,,,,
 lm_head,task,LmReadW,8,301835,,,2.431,2378,3072,0,15,0
 lm_head,loop,LmReadW/VITIS_LOOP_77_1,,301826,1,301824,,,,,,
+lm_head,loop,LmReadW/VITIS_LOOP_79_1,,301826,1,301824,,,,,,
 lm_head,task,LmReadX,1,59,,,2.431,2480,3059,0,15,0
+lm_head,loop,LmReadX/VITIS_LOOP_100_1,,50,1,48,,,,,,
 lm_head,loop,LmReadX/VITIS_LOOP_98_1,,50,1,48,,,,,,
-lm_head,kernel,LmHeadKernel,1,301959,2,"V=50304 padded rows, C=768 (compile-time)",2.431,76398,117013,640,201,0
+lm_head,kernel,LmHeadKernel,1,301959,2,"V=50304 padded rows, C=768 (compile-time)",2.431,75618,116385,640,200,0

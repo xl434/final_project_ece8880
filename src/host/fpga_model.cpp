@@ -136,13 +136,12 @@ int FpgaModel::lm_head(const float* x) {
     return id;
   }
   auto xa = copy_of(x, kC);
-  aligned_vector<int> idx(16, -1);
-  aligned_vector<float> val(16, 0.0f);
+  aligned_vector<float> out(16, -1.0f);  // {token ID, logit}
   tapa::invoke(LmHeadKernel, opt_.bitstream, tapa::read_only_mmap<float>(xa).reinterpret<float_v16>(),
                tapa::read_only_mmaps<float, kLmPorts>(lmw_).reinterpret<float_v16>(),
-               tapa::write_only_mmap<int>(idx), tapa::write_only_mmap<float>(val));
-  last_logit_ = val[0];
-  return idx[0];
+               tapa::write_only_mmap<float>(out));
+  last_logit_ = out[1];
+  return (int)out[0];
 }
 
 void FpgaModel::block(int l, const std::vector<float>& x, int pos, BlockActs* a) {

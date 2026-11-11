@@ -1,25 +1,25 @@
 WARNING: Logging before InitGoogleLogging() is written to STDERR
-I20261107 23:13:35.734448 757578 task.h:122] running software simulation with TAPA library
-I20261107 23:13:35.750198 757578 task.h:122] running software simulation with TAPA library
-I20261107 23:13:36.338462 757578 task.h:122] running software simulation with TAPA library
-I20261107 23:13:36.396023 757578 task.h:122] running software simulation with TAPA library
-I20261107 23:13:37.146428 757578 task.h:122] running software simulation with TAPA library
-I20261107 23:13:37.163638 757578 task.h:122] running software simulation with TAPA library
-I20261107 23:13:37.178562 757578 task.h:122] running software simulation with TAPA library
-I20261107 23:13:38.074415 757578 task.h:122] running software simulation with TAPA library
-I20261107 23:13:38.090677 757578 task.h:122] running software simulation with TAPA library
-I20261107 23:13:38.964677 757578 task.h:122] running software simulation with TAPA library
-I20261107 23:13:38.992038 757578 task.h:122] running software simulation with TAPA library
-I20261107 23:13:39.008164 757578 task.h:122] running software simulation with TAPA library
-I20261107 23:13:39.292445 757578 task.h:122] running software simulation with TAPA library
-I20261107 23:13:39.345585 757578 task.h:122] running software simulation with TAPA library
-I20261107 23:13:39.541013 757578 task.h:122] running software simulation with TAPA library
-I20261107 23:13:39.557832 757578 task.h:122] running software simulation with TAPA library
-I20261107 23:13:39.573655 757578 task.h:122] running software simulation with TAPA library
-I20261107 23:13:40.496361 757578 task.h:122] running software simulation with TAPA library
-I20261107 23:13:40.512799 757578 task.h:122] running software simulation with TAPA library
-I20261107 23:13:41.012867 757578 task.h:122] running software simulation with TAPA library
-[host] packed weights in 648 ms (GEMV 8 ports x 16 rows, LM head 8 ports)
+I20261110 23:13:16.743135 2024684 task.h:122] running software simulation with TAPA library
+I20261110 23:13:16.758384 2024684 task.h:122] running software simulation with TAPA library
+I20261110 23:13:18.657275 2024684 task.h:122] running software simulation with TAPA library
+I20261110 23:13:18.704137 2024684 task.h:122] running software simulation with TAPA library
+I20261110 23:13:19.607950 2024684 task.h:122] running software simulation with TAPA library
+I20261110 23:13:19.636089 2024684 task.h:122] running software simulation with TAPA library
+I20261110 23:13:19.653333 2024684 task.h:122] running software simulation with TAPA library
+I20261110 23:13:20.250414 2024684 task.h:122] running software simulation with TAPA library
+I20261110 23:13:20.266494 2024684 task.h:122] running software simulation with TAPA library
+I20261110 23:13:20.962019 2024684 task.h:122] running software simulation with TAPA library
+I20261110 23:13:20.986515 2024684 task.h:122] running software simulation with TAPA library
+I20261110 23:13:21.002230 2024684 task.h:122] running software simulation with TAPA library
+I20261110 23:13:21.360409 2024684 task.h:122] running software simulation with TAPA library
+I20261110 23:13:21.439662 2024684 task.h:122] running software simulation with TAPA library
+I20261110 23:13:21.728596 2024684 task.h:122] running software simulation with TAPA library
+I20261110 23:13:21.745333 2024684 task.h:122] running software simulation with TAPA library
+I20261110 23:13:21.760535 2024684 task.h:122] running software simulation with TAPA library
+I20261110 23:13:22.338784 2024684 task.h:122] running software simulation with TAPA library
+I20261110 23:13:22.354133 2024684 task.h:122] running software simulation with TAPA library
+I20261110 23:13:23.170276 2024684 task.h:122] running software simulation with TAPA library
+[host] packed weights in 599 ms (GEMV 8 ports x 16 rows, LM head 8 ports)
 block 0, position 5, software simulation:
   l00_ln1                n=768     max_abs=5.960e-08 max_rel=2.119e-06 norm_rel=9.608e-08 |ref|max=5.236e-01  PASS
   [vs HF] l00_ln1        max_abs=5.960e-08 max_rel=2.340e-06 norm_rel=1.095e-07

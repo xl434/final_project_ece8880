@@ -102,12 +102,56 @@ The **KV cache** stores the key and value of every earlier token, so that each
 new token only has to compute its own. Without it, the model would recompute the
 whole prompt for every word.
 
+### "Decoder-only" vs "decode": two different words
+
+These sound alike but mean different things:
+
+- **Decoder-only** describes GPT-2's *architecture*. The original transformer had
+  two halves: an *encoder* that reads an input sentence, and a *decoder* that
+  writes an output. GPT-2 keeps only the decoder half. It reads and writes in one
+  stream of tokens, and each token may only look at earlier tokens (*causal*
+  attention). Every GPT-style model is decoder-only.
+- **Prefill and decode** are two *phases* of running that one network to
+  generate text:
+
+| | **prefill** | **decode** |
+|---|---|---|
+| when | once, at the start | once per new token, repeated |
+| input | the whole prompt (e.g. 5 tokens) at once | just the last generated token |
+| output | the KV cache for every prompt token + the first new token | one more KV-cache row + the next token |
+| math | matrix × matrix: each weight is used for every prompt token | matrix × vector: each weight is used once |
+| what limits speed | arithmetic (lots of math per weight read) | memory (must read all 500 MB of weights for very little math) |
+
+Example with the prompt "The FPGA is":
+1. **Prefill** reads all 5 prompt tokens and predicts " a".
+2. **Decode step 1** reads " a" and predicts " joint".
+3. **Decode step 2** reads " joint" and predicts " venture". This continues, one
+   token per step.
+
+**This project accelerates decode.** It is the phase that repeats for every
+generated word, and it is limited by memory bandwidth, which is where the FPGA's
+fast HBM memory helps. The FPGA kernels therefore all work on one token at a time.
+The prompt is currently fed through them token by token too: correct, but not yet
+optimized. A faster matrix × matrix prefill is a later step.
+
 ---
 
 ## 2. Step 1: the golden reference (`golden/golden_hf.py`)
 
-**Purpose:** run the real Hugging Face model once and save everything it
-computes, as the "correct answers" for all later tests.
+**Purpose:** run the real Hugging Face model once on a fixed prompt and save
+what it computes, as the "correct answers" for all later tests.
+
+> **What is in `data/`?** *Not the weights.* The weights (the model's 124M
+> learned numbers) are in `models/gpt2_124M.bin` and never change. `data/` holds
+> the **results** of running the model on one prompt:
+> - which tokens it generated;
+> - the intermediate values inside every layer for one decode step;
+> - the KV cache and the final scores.
+>
+> Think of `models/` as the program and `data/` as a recorded run of that program
+> with known-correct outputs. Every test feeds the same input into our code and
+> compares against this recording. It is small (1.5 MB) and can be regenerated
+> at any time with `golden_hf.py`.
 
 **Run it:**
 ```bash
@@ -179,6 +223,57 @@ ids = np.fromfile("data/output_ids.i32", dtype=np.int32)
 ```
 In C++: `golden::act(0, "ln1")`, `golden::i32("output_ids.i32")` (see `data/golden_loader.h`).
 
+### How the Hugging Face model works (it is not a black box)
+
+`transformers` is an open-source Python library. GPT-2 in it is one readable
+file:
+```
+~/.local/lib/python3.12/site-packages/transformers/models/gpt2/modeling_gpt2.py
+```
+(We use transformers 5.22.2 on PyTorch 2.14.1.)
+
+A pretrained model is **two things**:
+- **The weights:** `from_pretrained("gpt2")` downloads `config.json` (the sizes
+  from §1) and `model.safetensors` (the 124M trained numbers, from OpenAI).
+- **The code:** the classes in `modeling_gpt2.py`, which are ordinary PyTorch
+  (`matmul`, `softmax`, `LayerNorm`). `from_pretrained` builds these classes and
+  fills them with the weights.
+
+Where each part of §1 is in that file, and where our version of it is:
+
+| model part | in `modeling_gpt2.py` | ours |
+|---|---|---|
+| the whole stack: embeddings → 12 blocks → `ln_f` | `GPT2Model` | `src/cpu/gpt2_cpu.cpp` `forward()` |
+| output scores (LM head) | `GPT2LMHeadModel` | `lm_head` kernel |
+| one block: `x + attn(ln_1(x))`, then `x + mlp(ln_2(x))` | `GPT2Block.forward` (~40 lines; **start reading here**) | block loop + `residual` |
+| Q, K, V: one multiply `c_attn`, then split into 3 | `GPT2Attention.forward` | QKV GEMV |
+| attention: softmax(Q·Kᵀ·scale + mask)·V | `eager_attention_forward` | `attention` kernel |
+| MLP: `c_fc` → GELU → `c_proj` | `GPT2MLP` | GEMV, `gelu`, GEMV |
+| `Conv1D`: despite the name, just `x @ W + b` | `transformers/pytorch_utils.py` | `gemv` kernel |
+| GELU, tanh version (`"gelu_new"`) | `NewGELUActivation` in `transformers/activations.py` | `gelu` kernel |
+
+One detail: GPT-2's `Conv1D` stores a weight as (input × output), the transpose
+of PyTorch's usual `nn.Linear`. This is why `check_llmc_weights` transposes some
+matrices before comparing.
+
+**How `golden_hf.py` sees inside it:** PyTorch *forward hooks*. A hook is a small
+function attached to a module, which PyTorch calls with the module's input and
+output every time it runs. For example, `blk.ln_1.register_forward_hook(...)`
+saves the output of LayerNorm 1 in every layer (`golden_hf.py` lines 125–138).
+That is how `data/acts/` gets each intermediate value.
+
+**Look at it yourself:**
+```bash
+# the module tree: layer names and weight shapes
+python3 -c "from transformers import GPT2LMHeadModel as M; print(M.from_pretrained('gpt2'))"
+# the implementation
+less ~/.local/lib/python3.12/site-packages/transformers/models/gpt2/modeling_gpt2.py
+```
+The Hugging Face file also handles training, cross-attention and other
+variants, which makes it longer. Shorter versions of the same model are
+`third_party/nanogpt/model.py` (PyTorch, ~300 lines) and
+`third_party/llm.c/train_gpt2.c` (plain C, which our CPU version is based on).
+
 ---
 
 ## 3. Step 2: our own C++ version on the CPU (`src/cpu`, `src/common`)
@@ -186,6 +281,39 @@ In C++: `golden::act(0, "ln1")`, `golden::i32("output_ids.i32")` (see `data/gold
 **Purpose:** a simple, readable C++ implementation that we fully control. It
 becomes the reference for the hardware kernels. It reuses llm.c's functions,
 adding a KV cache and single-token decoding.
+
+### Why a CPU version, when Hugging Face already has GPT-2?
+
+Hugging Face tells us **what** the right answer is. The hardware still needs
+something it can be compared against **operation by operation**, under the same
+conditions as the hardware. Hugging Face cannot do that, for five reasons:
+
+1. **It runs in Python/PyTorch, and the kernel testbenches are C++.** Each
+   kernel test (`kernels/*/tb.cpp`) calls the matching CPU function from
+   `src/cpu/ops.h` directly, on the same input, and compares. This needs no
+   Python and no file exchange.
+2. **It only gives answers for the inputs we recorded.** `data/` holds one
+   prompt and one decode step. Kernel tests also need random inputs, edge cases
+   (very large values, the full context of 1024, two tied top scores for argmax)
+   and other positions in the context. The C++ functions compute a reference for *any* input.
+3. **The operations must be split the same way.** A kernel does one piece, such
+   as "multiply this 768-vector by this 768×2304 matrix". In C++ each piece is
+   one function with the same inputs, outputs and memory layout (llm.c's
+   weight file, our KV-cache layout). Inside PyTorch, these steps are hidden
+   behind library calls with different layouts (for example the transposed
+   `Conv1D` weights).
+4. **The host program uses it as a fallback.** `src/host/fpga_model.cpp` can run
+   any operation on the CPU instead of the FPGA. That is how we tested the
+   kernels one at a time inside the full model (test L4, "cpu_fallback").
+5. **It is the baseline for speed.** The analysis (§4) needs a CPU number that
+   does the same work as the FPGA: batch 1, FP32, single-token decode, C++.
+   Timing PyTorch would mostly measure Python and framework overhead, which
+   would make the CPU look slower than it really is and the FPGA speedup look
+   bigger than it really is.
+
+So the chain is: Hugging Face proves the C++ version is right (test L1, 147
+values, all within 0.01%). After that, the C++ version is the trusted reference
+for everything below it.
 
 **Files to read, in this order:**
 
@@ -218,30 +346,47 @@ values, and compares each one with `data/acts/`.
 - Output: `results/cpu_verify.csv`, `results/cpu_verify.log`.
 
 **Speed** (`results/cpu_profile_summary.csv`): 26–37 tokens/s on 1 thread and
-39–53 tokens/s on 8 threads, depending on context length.
+39–53 tokens/s on 8 threads, depending on context length. The machine has 4
+physical cores with 2 hyper-threads each, so "8 threads" means 4 cores.
 
 ---
 
-## 4. Step 3: analysis: what limits the speed? (`analysis/analyze.py`)
+## 4. Step 3: analysis: what limits the speed?
 
-```bash
-python3 analysis/analyze.py         # writes results/analysis/ (tables + 2 plots)
-```
+The analysis answers one question in four steps: *where does the time go, and can
+an FPGA do better?*
 
-The main finding, in plain words:
-- For every new token the model must read **all its weights once**: about 500 MB
-  in FP32.
-- It does only about 0.25 billion arithmetic operations with them, roughly 0.5 per
-  byte.
-- The speed is therefore set by **how fast memory can be read**, not by how fast
-  the chip can compute.
+**Step A: count the work** (`python3 analysis/analyze.py`). From the model sizes
+alone, it computes for every operator how many arithmetic operations (FLOPs) it
+does and how many bytes it must read.
+- Result: one generated token reads **~500 MB** (all the weights) but does only
+  **~0.25 GFLOP** of math. That is 0.5 operations per byte.
+- Chart: `results/figures/work_per_op.png`.
 
-The U55C's HBM memory can deliver up to 460 GB/s, which puts a hard ceiling of
-about 800–900 tokens/s on FP32. The FPGA design therefore aims to read weights
-from many memory channels at once.
+**Step B: measure the CPU** (`make -C src/cpu profile`). Time every operator
+while generating tokens.
+- Result: the weight multiplications take over 90% of the time at short context.
+  Attention grows with longer context.
+- Chart: `results/analysis/cpu_breakdown.png`.
 
-Details and plots: `results/analysis/analysis.md`, `roofline.png`,
-`cpu_breakdown.png`.
+**Step C: find the bottleneck** (`make -C src/cpu peaks`). First measure what this
+CPU can do at best: read memory at 23–34 GB/s, and compute at 98–391 GFLOP/s.
+Then compare each operator's speed with those limits.
+- Result: the weight multiplications read memory at **80–89% of the maximum**,
+  but use **under 10% of the arithmetic**. So the CPU is waiting on memory. This
+  is called *memory-bound*.
+- Chart: `results/figures/cpu_bandwidth_per_op.png`.
+
+**Step D: why an FPGA can help.** For a memory-bound program, speed ≈ memory
+bandwidth ÷ bytes per token.
+- The U55C's HBM memory provides 460 GB/s, about **13× the CPU**. That gives a
+  ceiling of about 800 tokens/s, versus about 60 on the CPU.
+- The FPGA design therefore focuses on reading weights from many memory channels
+  at once, not on adding more arithmetic.
+- Chart: `results/figures/roofline.png`.
+
+`python3 analysis/figures.py` redraws all charts from the result files. The full
+reasoning, with charts, is in `PROGRESS_REPORT.md` §1–2.
 
 ---
 
@@ -250,14 +395,16 @@ Details and plots: `results/analysis/analysis.md`, `roofline.png`,
 A *kernel* is one hardware block that does one operation. Each is written in C++
 with HLS (High-Level Synthesis) using the TAPA framework, as in the labs.
 
-| kernel | does | notes |
-|---|---|---|
-| `gemv` | vector × matrix (the 4 weight multiplies per layer) | the most important one: 8 memory ports, 128 multiply-adds per clock cycle |
-| `layernorm` | LayerNorm | |
-| `gelu` | GELU | |
-| `residual` | adds two vectors | normally merged into `gemv` |
-| `attention` | attention, including writing the KV cache | 12 heads in parallel; reads the cache once |
-| `lm_head` | final multiply by wte + argmax | outputs only the winning token ID |
+| kernel | does | input → output | kind of math | notes |
+|---|---|---|---|---|
+| `gemv` | the 4 weight multiplications per layer, `y = W x + b` | 768 or 3072 → 768, 2304 or 3072 | matrix × vector (each output is a sum) | the most important one: 8 memory ports, 128 multiply-adds per clock cycle |
+| `layernorm` | LayerNorm | 768 → 768 | two sums (mean, variance), then elementwise | |
+| `gelu` | GELU | 3072 → 3072 | elementwise | |
+| `residual` | adds two vectors | 768 + 768 → 768 | elementwise | normally merged into `gemv` |
+| `attention` | attention, including writing the KV cache | 2304 + cache → 768 | sums over all past tokens, per head | 12 heads in parallel; reads the cache once |
+| `lm_head` | final multiply by wte + argmax | 768 → 1 token ID | matrix × vector, then max | outputs only the winning token ID |
+
+How each kernel is built, with the math and diagrams: `PROGRESS_REPORT.md` §3.
 
 **Every kernel folder has the same 4 files:**
 
@@ -387,9 +534,11 @@ It then checks that all of them produce exactly the same token IDs. Logs go to
 | Did everything pass? | `results/test_summary.md` |
 | CPU vs Hugging Face errors, per tensor | `results/cpu_verify.csv` |
 | CPU speed | `results/cpu_profile_summary.csv`, `results/cpu_profile_ops.csv` |
-| Theoretical limits, plots | `results/analysis/analysis.md` |
+| Charts used in the report | `results/figures/` (drawn by `analysis/figures.py`) |
+| CPU memory and compute limits | `results/cpu_peaks.csv` |
+| Theoretical limits, detailed tables | `results/analysis/analysis.md` |
 | Hardware size and cycle counts | `results/synthesis.md` |
-| Estimated FPGA speed (an **estimate**, not measured) | `results/fpga_estimate.csv` (from `analysis/fpga_estimate.py`) |
+| Estimated FPGA speed (an **estimate**, not measured) | `results/fpga_estimate.csv`, per operator: `results/fpga_estimate_ops.csv` (from `analysis/fpga_estimate.py`) |
 | The full report | `PROGRESS_REPORT.md` |
 
 ---
@@ -413,5 +562,10 @@ It then checks that all of them produce exactly the same token IDs. Logs go to
 - Lower precision (FP16/INT8, a later stage).
 
 **Estimated FPGA speed** (from synthesis reports, **not measured**): about
-100–280 tokens/s, versus 39–53 tokens/s measured on the 8-thread CPU. The risks
-and next steps are in `PROGRESS_REPORT.md` §6.
+125–212 tokens/s, versus 39–53 tokens/s measured on the 8-thread CPU, i.e.
+roughly 3–4× faster.
+- The gain comes from reading memory faster, as the analysis predicted.
+- It is limited because the design uses only 8 of the 32 memory channels and
+  runs one kernel at a time; using more channels is the main next step.
+
+Details, risks and next steps: `PROGRESS_REPORT.md` §5–6.

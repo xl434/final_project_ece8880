@@ -14,7 +14,9 @@ streaming cycles scale with the shape of the call. Assumptions:
   * kernels run back to back, one at a time (current host flow), and
   * kernel launch / host synchronization overhead is NOT included (reported
     separately as a sensitivity: 98 launches per token: 12 x (2 LN + 4 GEMV + attention + GELU) + ln_f + LM head).
-Writes results/fpga_estimate.csv and prints a table.
+Writes results/fpga_estimate.csv (per token) and results/fpga_estimate_ops.csv
+(per operator group, same grouping as the CPU profile in results/cpu_profile_ops.csv,
+so each kernel can be compared with the CPU code it replaces).
 """
 import csv
 import os
@@ -30,6 +32,39 @@ def synth():
     rows = list(csv.DictReader(open(os.path.join(ROOT, "results", "synthesis.csv"))))
     k = {r["kernel"]: int(r["latency_cycles"]) for r in rows if r["level"] == "kernel"}
     return k
+
+
+# operator groups: CPU profile op names -> group (the kernel that replaces them)
+GROUPS = {
+    "QKV GEMV": ["qkv_matmul"],
+    "attention": ["attention", "kv_write"],
+    "attn-proj GEMV": ["attproj_matmul"],
+    "FC GEMV": ["fc_matmul"],
+    "FC-proj GEMV": ["fcproj_matmul"],
+    "LM head + argmax": ["lm_head", "argmax"],
+    "LayerNorm": ["ln1", "ln2", "ln_f"],
+    "GELU": ["gelu"],
+    "residual + embed": ["residual1", "residual2", "embed"],
+}
+
+
+def per_op(s, ctx, slow=1.0):
+    """ms per token for each operator group on the FPGA (estimate)."""
+    gemv_ovh = s["gemv"] - (3072 * 768 // 16 // GEMV_PORTS)
+    attn_ovh = s["attention"] - (1023 * 48)
+    g = lambda c, oc: L * (oc * c // 16 // GEMV_PORTS + gemv_ovh) * slow
+    cyc = {
+        "QKV GEMV": g(C, 3 * C),
+        "attention": L * ((ctx - 1) * 48 + attn_ovh) * slow,
+        "attn-proj GEMV": g(C, C),
+        "FC GEMV": g(C, 4 * C),
+        "FC-proj GEMV": g(4 * C, C),
+        "LM head + argmax": s["lm_head"] * slow,
+        "LayerNorm": (2 * L + 1) * s["layernorm"],
+        "GELU": L * s["gelu"],
+        "residual + embed": 0.0,  # residual fused into the GEMV output stage; embed on host
+    }
+    return {k: v / F * 1e3 for k, v in cyc.items()}
 
 
 def main():
@@ -76,6 +111,17 @@ def main():
               f"({r['tok_s_with_10us_launch']:.0f} / {r['tok_s_with_50us_launch']:.0f} tok/s with "
               f"10 / 50 us per launch); HBM-pseudo-channel-limited: {r['total_ms_hbm_pc_limited']:.3f} ms "
               f"= {r['tok_s_hbm_pc_limited']:.0f} tok/s")
+    print(f"wrote {path}")
+
+    slow = (64 * F / 1e9) / (460.0 / 32)
+    path = os.path.join(ROOT, "results", "fpga_estimate_ops.csv")
+    with open(path, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["context", "op_group", "fpga_ms_full_port", "fpga_ms_hbm_pc_limited"])
+        for ctx in (128, 512, 1024):
+            a, b = per_op(s, ctx), per_op(s, ctx, slow)
+            for k in GROUPS:
+                w.writerow([ctx, k, f"{a[k]:.4f}", f"{b[k]:.4f}"])
     print(f"wrote {path}")
 
 

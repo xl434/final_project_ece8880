@@ -1,7 +1,7 @@
 WARNING: Logging before InitGoogleLogging() is written to STDERR
-I20261107 23:13:22.894586 755800 task.h:122] running software simulation with TAPA library
-I20261107 23:13:22.912451 755800 task.h:122] running software simulation with TAPA library
-I20261107 23:13:22.927856 755800 task.h:122] running software simulation with TAPA library
+I20261110 23:12:51.671801 2022826 task.h:122] running software simulation with TAPA library
+I20261110 23:12:51.688472 2022826 task.h:122] running software simulation with TAPA library
+I20261110 23:12:51.705744 2022826 task.h:122] running software simulation with TAPA library
 ResidualKernel, mode: software simulation
   l03_res1               n=768     max_abs=0.000e+00 max_rel=0.000e+00 norm_rel=0.000e+00 |ref|max=2.512e+01  PASS
   [vs HF] l03_res1       max_abs=0.000e+00 max_rel=0.000e+00 norm_rel=0.000e+00

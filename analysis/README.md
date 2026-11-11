@@ -1,10 +1,21 @@
-# analysis/
+# analysis/ — performance analysis scripts
+
+The scripts follow the reasoning of `PROGRESS_REPORT.md` §1, §2 and §5: count the
+work, measure the CPU, find the bottleneck, estimate the FPGA.
+
+| script | what it does | output |
+|---|---|---|
+| `analyze.py` | from the model sizes alone: FLOPs and bytes per operator (decode and prefill), operational intensity, KV-cache size, bandwidth-limited tokens/s, on-chip fit; places the measured CPU numbers next to them | `results/analysis/` (`analysis.md`, CSVs, `cpu_breakdown.png`) |
+| `collect_synth.py` | gathers the HLS synthesis reports of all kernels (after `make hls`) | `results/synthesis.md`, `results/synthesis.csv` |
+| `fpga_estimate.py` | **estimate** of FPGA decode time, per token and per operator, from the synthesized cycle counts | `results/fpga_estimate.csv`, `results/fpga_estimate_ops.csv` |
+| `figures.py` | draws the report charts from all of the above plus the CPU measurements | `results/figures/*.png` |
 
 ```bash
-python3 analysis/analyze.py         # -> results/analysis/{analysis.md, *.csv, roofline.png, cpu_breakdown.png}
-python3 analysis/collect_synth.py   # -> results/synthesis.{csv,md} (after `make hls` in kernels/*)
+make -C src/cpu profile peaks        # CPU measurements the scripts read (results/cpu_*.csv)
+python3 analysis/analyze.py
+python3 analysis/collect_synth.py    # after `make hls` in kernels/*
+python3 analysis/fpga_estimate.py
+python3 analysis/figures.py
 ```
-`analyze.py` derives per-operator FLOPs, bytes (FP32/FP16/INT8), operational
-intensity, KV-cache size, bandwidth-bound tokens/s and on-chip fit from the
-model dimensions; assumptions are listed at the top of the script and in
-`analysis.md`. Measured CPU numbers are read from `results/cpu_profile_*.csv`.
+Assumptions (how FLOPs and bytes are counted, which clock and bandwidth are used)
+are listed at the top of each script and in `results/analysis/analysis.md`.

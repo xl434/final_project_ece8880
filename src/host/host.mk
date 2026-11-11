@@ -1,6 +1,7 @@
 # Sources and flags for programs that run the whole model through the
 # kernels (src/host/host_main, tests/*). Include after setting ROOT.
 # Objects go to build/obj, programs to build/bin.
+SHELL := /bin/bash
 XILINX_VERSION := 2024.2
 XILINX_ROOT := /tools/Xilinx
 export XILINX_VITIS := $(XILINX_ROOT)/Vitis/$(XILINX_VERSION)

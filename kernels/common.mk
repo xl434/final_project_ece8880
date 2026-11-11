@@ -26,7 +26,7 @@ HDRS := $(wildcard *.h $(ROOT)/kernels/common/*.h $(ROOT)/src/common/*.h $(ROOT)
         $(ROOT)/data/golden_loader.h
 
 .DEFAULT_GOAL := tb
-.PHONY: tb swsim hls cosim hwemu clean cleanall
+.PHONY: tb swsim hls cosim hwemu xclbin_hw_emu hw_emu clean cleanall
 
 $(B)/kernel.o: kernel.cpp $(HDRS) Makefile
 	@mkdir -p $(B)
@@ -69,6 +69,28 @@ cosim: $(B)/tb $(B)/$(NAME).xo
 	env -u XILINX_XRT $(B)/tb --bitstream=$(B)/$(NAME).xo $(COSIM_ARGS)
 
 hwemu: cosim
+
+# Vitis hardware emulation: link this one kernel into the U55C shell with the
+# HBM placement from src/host/link_config.ini (its nk=/sp= lines for $(TOP)),
+# then run the same testbench against the emulated card (XRT + HBM model).
+LINK_INI := $(ROOT)/src/host/link_config.ini
+$(B)/link_hw_emu.ini: $(LINK_INI)
+	@mkdir -p $(B)
+	{ echo "[connectivity]"; grep -E '^(nk=$(TOP):|sp=$(TOP)_1\.)' $<; } > $@
+
+$(B)/$(NAME).hw_emu.xclbin: $(B)/$(NAME).xo $(B)/link_hw_emu.ini
+	v++ -l -t hw_emu --platform $(PLATFORM) --config $(B)/link_hw_emu.ini \
+	--temp_dir $(B)/vpp_hw_emu --log_dir $(B)/vpp_hw_emu/logs --report_dir $(B)/vpp_hw_emu/reports \
+	-o $@ $< 2>&1 | tee $(B)/vpp_hw_emu.log; test $${PIPESTATUS[0]} -eq 0
+
+$(B)/emconfig.json:
+	emconfigutil --platform $(PLATFORM) --od $(B)
+
+xclbin_hw_emu: $(B)/$(NAME).hw_emu.xclbin
+
+hw_emu: $(B)/tb $(B)/$(NAME).hw_emu.xclbin $(B)/emconfig.json
+	cd $(B) && XCL_EMULATION_MODE=hw_emu ./tb --bitstream=$(B)/$(NAME).hw_emu.xclbin $(HWEMU_ARGS) \
+	2>&1 | tee $(B)/hw_emu_run.log; test $${PIPESTATUS[0]} -eq 0
 
 clean:
 	rm -f $(B)/*.o $(B)/tb

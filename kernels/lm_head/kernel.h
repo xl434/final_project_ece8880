@@ -1,6 +1,8 @@
 // LM head fused with argmax: next = argmax_{v < V} (wte[v] . x), x = ln_f
 // output (C = 768). Only the token ID and its logit leave the chip, so the
-// 50257 logits are never written to memory.
+// 50257 logits are never written to memory. Both go into one 2-float output
+// buffer, result = {token ID as float, logit}, so the kernel uses one AXI port
+// fewer (the U55C HBM interconnect allows at most 32 kernel ports).
 //
 // Same weight-streaming structure as the GEMV (kLmPorts PEs, 16 MACs per
 // cycle each, kLmRows interleaved rows). wte (Vp = 50304 rows, rows >= V are
@@ -22,6 +24,6 @@ constexpr int kLmRowBlock = kLmPorts * kLmRows;
 static_assert(kKVp % kLmRowBlock == 0, "padded vocabulary must fill whole row blocks");
 
 void LmHeadKernel(tapa::mmap<float_v16> x, tapa::mmaps<float_v16, kLmPorts> w,
-                  tapa::mmap<int> out_idx, tapa::mmap<float> out_val);
+                  tapa::mmap<float> result);
 
 #endif

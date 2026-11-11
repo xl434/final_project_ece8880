@@ -136,4 +136,4 @@ Achieved = analytic FLOPs (or bytes) per token x measured tokens/s.
 ![CPU breakdown](cpu_breakdown.png)
 
 
-![Roofline](roofline.png)
+Roofline: see `results/figures/roofline.png` (drawn by `analysis/figures.py`).

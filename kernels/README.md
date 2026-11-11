@@ -25,6 +25,8 @@ In each `kernels/<name>/`:
 make swsim     # build the testbench and run it in TAPA software simulation (compares with src/cpu)
 make hls       # synthesis: tapa compile -> build/kernels/<name>/<name>.xo, reports in .../work.out/report
 make cosim     # TAPA fast RTL cosimulation of the .xo (the labs' "hwemu")
+make hw_emu    # Vitis hardware emulation: v++ link into the U55C shell (HBM placement
+               # from src/host/link_config.ini), then run the testbench on the emulated card
 make cleanall  # delete build/kernels/<name>/
 ```
 The testbench is verification level L2 (see `tests/README.md`).

@@ -20,20 +20,20 @@ static void run_case(TbReport& rep, const std::string& name, const float* wte,
                      const std::vector<float>& x, int expect_id = -1) {
   auto wp = pack_gemv_weights(wte, kVp, kC, kLmPorts, kLmRows, kV);
   auto xa = to_aligned(x);
-  aligned_vector<int> idx(16, -1);
-  aligned_vector<float> val(16, 0.0f);
+  aligned_vector<float> out(16, -1.0f);
   double us = tapa::invoke(LmHeadKernel, FLAGS_bitstream,
                            tapa::read_only_mmap<float>(xa).reinterpret<float_v16>(),
                            tapa::read_only_mmaps<float, kLmPorts>(wp).reinterpret<float_v16>(),
-                           tapa::write_only_mmap<int>(idx), tapa::write_only_mmap<float>(val)) *
+                           tapa::write_only_mmap<float>(out)) *
               1e-3;
   std::vector<float> logits(kV);
   lm_head_forward(logits.data(), x.data(), wte, kC, kV);
   const int ref = argmax(logits.data(), kV);
-  std::printf("%s: kernel id %d logit %.6f | cpu id %d logit %.6f (%.0f us)\n", name.c_str(),
-              idx[0], val[0], ref, logits[ref], us);
-  rep.expect(name + " argmax", idx[0] == ref && (expect_id < 0 || ref == expect_id));
-  rep.check(name + " max logit", val.data(), &logits[ref], 1);
+  const int id = (int)out[0];  // out = {token ID, logit}
+  std::printf("%s: kernel id %d logit %.6f | cpu id %d logit %.6f (%.0f us)\n", name.c_str(), id,
+              out[1], ref, logits[ref], us);
+  rep.expect(name + " argmax", id == ref && (expect_id < 0 || ref == expect_id));
+  rep.check(name + " max logit", &out[1], &logits[ref], 1);
 }
 
 int main(int argc, char** argv) {

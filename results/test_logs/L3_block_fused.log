@@ -1,21 +1,21 @@
 WARNING: Logging before InitGoogleLogging() is written to STDERR
-I20261107 23:13:30.528471 756541 task.h:122] running software simulation with TAPA library
-I20261107 23:13:30.544294 756541 task.h:122] running software simulation with TAPA library
-I20261107 23:13:31.171710 756541 task.h:122] running software simulation with TAPA library
-I20261107 23:13:31.222400 756541 task.h:122] running software simulation with TAPA library
-I20261107 23:13:31.450824 756541 task.h:122] running software simulation with TAPA library
-I20261107 23:13:31.465296 756541 task.h:122] running software simulation with TAPA library
-I20261107 23:13:32.159286 756541 task.h:122] running software simulation with TAPA library
-I20261107 23:13:32.174395 756541 task.h:122] running software simulation with TAPA library
-I20261107 23:13:32.688014 756541 task.h:122] running software simulation with TAPA library
-I20261107 23:13:32.702955 756541 task.h:122] running software simulation with TAPA library
-I20261107 23:13:33.340950 756541 task.h:122] running software simulation with TAPA library
-I20261107 23:13:33.388101 756541 task.h:122] running software simulation with TAPA library
-I20261107 23:13:33.734326 756541 task.h:122] running software simulation with TAPA library
-I20261107 23:13:33.751058 756541 task.h:122] running software simulation with TAPA library
-I20261107 23:13:34.061101 756541 task.h:122] running software simulation with TAPA library
-I20261107 23:13:34.077845 756541 task.h:122] running software simulation with TAPA library
-[host] packed weights in 637 ms (GEMV 8 ports x 16 rows, LM head 8 ports)
+I20261110 23:13:00.990350 2023589 task.h:122] running software simulation with TAPA library
+I20261110 23:13:01.006534 2023589 task.h:122] running software simulation with TAPA library
+I20261110 23:13:04.713800 2023589 task.h:122] running software simulation with TAPA library
+I20261110 23:13:04.801999 2023589 task.h:122] running software simulation with TAPA library
+I20261110 23:13:05.963930 2023589 task.h:122] running software simulation with TAPA library
+I20261110 23:13:05.980942 2023589 task.h:122] running software simulation with TAPA library
+I20261110 23:13:09.360693 2023589 task.h:122] running software simulation with TAPA library
+I20261110 23:13:09.395437 2023589 task.h:122] running software simulation with TAPA library
+I20261110 23:13:10.044914 2023589 task.h:122] running software simulation with TAPA library
+I20261110 23:13:10.060678 2023589 task.h:122] running software simulation with TAPA library
+I20261110 23:13:11.037933 2023589 task.h:122] running software simulation with TAPA library
+I20261110 23:13:11.092602 2023589 task.h:122] running software simulation with TAPA library
+I20261110 23:13:11.369660 2023589 task.h:122] running software simulation with TAPA library
+I20261110 23:13:11.385303 2023589 task.h:122] running software simulation with TAPA library
+I20261110 23:13:14.869059 2023589 task.h:122] running software simulation with TAPA library
+I20261110 23:13:14.882956 2023589 task.h:122] running software simulation with TAPA library
+[host] packed weights in 575 ms (GEMV 8 ports x 16 rows, LM head 8 ports)
 block 0, position 5, software simulation:
   l00_ln1                n=768     max_abs=5.960e-08 max_rel=2.119e-06 norm_rel=9.608e-08 |ref|max=5.236e-01  PASS
   [vs HF] l00_ln1        max_abs=5.960e-08 max_rel=2.340e-06 norm_rel=1.095e-07

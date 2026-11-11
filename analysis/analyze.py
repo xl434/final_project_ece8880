@@ -10,7 +10,7 @@ Outputs (results/analysis/):
   token_bound.csv                   bandwidth-bound tokens/s upper bounds
   onchip_fit.csv                    weight sizes vs on-chip memory
   analysis.md                       markdown tables of all of the above
-  roofline.png, cpu_breakdown.png   plots
+  cpu_breakdown.png                 plot (the roofline is drawn by figures.py)
 
 Assumptions (also written into analysis.md):
   * FLOP counts: multiply and add = 2 FLOPs. LayerNorm 8 FLOPs/elem, GELU 12
@@ -293,59 +293,8 @@ def main():
                            {k: (lambda x: f"{x:.2f}") for k in ("decode_tok_s", "decode_gflops", "decode_gbs",
                                                                "prefill_tok_s", "prefill_gflops")}))
 
-    # ---- roofline plot ---------------------------------------------------------
-    fig, ax = plt.subplots(figsize=(8.2, 5.4), facecolor=SURF)
-    style(ax)
-    ax.set_xscale("log")
-    ax.set_yscale("log")
-    xs = [10 ** (e / 20) for e in range(-60, 81)]  # 1e-3 .. 1e4 FLOP/B
-    # ceiling labels: (x position, above/below the line) chosen so they do not collide
-    for bw, lab, xl, fac in ((PORT_BW, f"1 HBM port {PORT_BW/1e9:.1f} GB/s", 2e-3, 1.6),
-                             (16 * PORT_BW, f"16 ports {16*PORT_BW/1e9:.0f} GB/s", 4e-3, 0.35),
-                             (HBM_BW, f"HBM {HBM_BW/1e9:.0f} GB/s", 2e-3, 1.6)):
-        ys = [min(bw * x, PEAK_FP32) for x in xs]
-        ax.plot(xs, ys, color=INK2, linewidth=1.2, zorder=2)
-        ax.text(xl, bw * xl * fac, lab, color=INK2, fontsize=8)
-    ax.axhline(PEAK_FP32, color=INK2, linewidth=1.2, linestyle="--", zorder=2)
-    ax.text(1.3e-3, PEAK_FP32 * 1.25, f"FP32 compute ceiling {PEAK_FP32/1e12:.2f} TFLOP/s (estimate)",
-            color=INK2, fontsize=8)
-    # analytic points, attainable on full HBM: decode ops (ctx 1024) and prefill ops (T=512)
-    dec = [r for r in dec_rows if r["context"] == 1024 and r["flops"] > 1e6]
-    pre = [r for r in pre_rows if r["T"] == 512 and r["flops"] > 1e8]
-    att = lambda oi: min(HBM_BW * oi, PEAK_FP32)
-    ax.scatter([r["oi_FP32"] for r in dec], [att(r["oi_FP32"]) for r in dec], s=46,
-               color=SLOTS[0], edgecolor=SURF, linewidth=2, zorder=4,
-               label="decode ops, ctx 1024 (attainable @460 GB/s)")
-    ax.scatter([r["oi_FP32"] for r in pre], [att(r["oi_FP32"]) for r in pre], s=46,
-               color=SLOTS[1], edgecolor=SURF, linewidth=2, zorder=4, marker="s",
-               label="prefill ops, T=512 (attainable)")
-    tot_d = [r for r in dec if r["op"] == "TOTAL"][0]
-    ax.annotate("decode: every op ~0.5 FLOP/B\n(memory bound)", (tot_d["oi_FP32"], att(tot_d["oi_FP32"])),
-                textcoords="offset points", xytext=(10, -26), fontsize=8, color=INK)
-    tot_p = [r for r in pre if r["op"] == "TOTAL"][0]
-    ax.annotate("prefill total", (tot_p["oi_FP32"], att(tot_p["oi_FP32"])),
-                textcoords="offset points", xytext=(-8, -16), fontsize=8, color=INK, ha="right")
-    if cpu_pts:
-        ax.scatter([p[3] for p in cpu_pts], [p[4] for p in cpu_pts], s=46, color=SLOTS[2],
-                   edgecolor=SURF, linewidth=2, zorder=5, marker="D",
-                   label="measured CPU (EPYC 7713, 1 and 8 threads)")
-        d = [p for p in cpu_pts if p[0] == "decode"]
-        pf = [p for p in cpu_pts if p[0] == "prefill"]
-        ax.annotate("CPU decode", (d[0][3], max(p[4] for p in d)), textcoords="offset points",
-                    xytext=(8, 4), fontsize=8, color=INK)
-        ax.annotate("CPU prefill (96-992 tokens)", (max(p[3] for p in pf), max(p[4] for p in pf)),
-                    textcoords="offset points", xytext=(8, 4), fontsize=8, color=INK)
-    ax.set_xlim(1e-3, 1e4)
-    ax.set_ylim(1e7, 3e12)
-    ax.set_xlabel("Operational intensity (FLOP / byte, FP32)", color=INK, fontsize=10)
-    ax.set_ylabel("Performance (FLOP/s)", color=INK, fontsize=10)
-    ax.set_title("GPT-2 124M roofline on Alveo U55C (FP32)", color=INK, fontsize=12, loc="left")
-    leg = ax.legend(loc="lower right", fontsize=8, frameon=False)
-    for t in leg.get_texts():
-        t.set_color(INK)
-    fig.tight_layout()
-    fig.savefig(os.path.join(OUT, "roofline.png"), dpi=150)
-    plt.close(fig)
+    # the roofline chart is drawn by analysis/figures.py (results/figures/roofline.png),
+    # with the CPU ceilings measured by build/bin/cpu_peaks
 
     # ---- CPU per-operator breakdown (decode) ----------------------------------
     if opsm:
@@ -381,7 +330,7 @@ def main():
             ax.set_title(f"{th} thread{'s' if th > 1 else ''}", color=INK, fontsize=10, loc="left")
             ax.set_xlabel("decode time per token (ms)", color=INK, fontsize=9)
         axes[0].set_xlim(0, xmax * 1.18)
-        fig.suptitle("CPU decode time per token by operator (measured, -O3, OpenMP)",
+        fig.suptitle("CPU decode time per token by operator (measured; 8 threads = 4 cores x 2 hyper-threads)",
                      color=INK, fontsize=11, x=0.01, ha="left")
         handles, labels = axes[0].get_legend_handles_labels()
         leg = fig.legend(handles, labels, loc="lower center", ncol=4, fontsize=8, frameon=False)
@@ -407,7 +356,7 @@ def main():
                            [(g, g) for g, _ in groups] + [("total", "total")],
                            {g: (lambda x: f"{x:.2f}") for g, _ in groups + [("total", 0)]}))
         md.append("\n![CPU breakdown](cpu_breakdown.png)\n")
-    md.append("\n![Roofline](roofline.png)\n")
+    md.append("\nRoofline: see `results/figures/roofline.png` (drawn by `analysis/figures.py`).\n")
 
     with open(os.path.join(OUT, "analysis.md"), "w") as f:
         f.write("\n".join(md))

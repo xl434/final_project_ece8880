@@ -11,6 +11,7 @@ Text ↔ token conversion runs on the host CPU.
 | `README.md` (this file) | **how to run things**, plus a map of the folders | you want to run something |
 | [`WALKTHROUGH.md`](WALKTHROUGH.md) | **plain-language explanation** of what was done, step by step: the model, what each script does, where the code is, what each test checks | you want to understand the project |
 | [`PROGRESS_REPORT.md`](PROGRESS_REPORT.md) | **the formal course report** (the 6 required sections), with all measured numbers, the design, and risks | you need the numbers or the deliverable |
+| [`PLAN.md`](PLAN.md) | **current stage and plan**: what kind of design the baseline is, what to do now vs later, and a storyline for the presentation | you are preparing the presentation or the next stage |
 
 Each folder also has a short `README.md` with the exact commands for that folder.
 
@@ -103,13 +104,17 @@ test in `results/test_logs/`. Details of every test: `tests/README.md`.
 | 1. golden reference | `python3 golden/golden_hf.py` | a few min at most | `data/` |
 | 2a. CPU model vs Hugging Face | `make -C src/cpu verify` | ~15 s | `results/cpu_verify.csv` |
 | 2b. CPU speed | `make -C src/cpu profile` | ~3 min | `results/cpu_profile_*.csv` |
+| 2c. CPU limits (memory bandwidth, compute peak) | `make -C src/cpu peaks` | ~1 min | `results/cpu_peaks.csv` |
 | 3. application analysis | `python3 analysis/analyze.py` | seconds | `results/analysis/` |
 | 4a. one kernel, functional test | `make -C kernels/gemv swsim` (any of: gemv layernorm gelu residual attention lm_head) | seconds | printed PASS/FAIL |
 | 4b. one kernel, synthesis | `make -C kernels/gemv hls` | minutes to ~1 h | `build/kernels/gemv/` (`gemv.xo`, `work.out/report/`, `hls.log`) |
 | 4c. collect synthesis results | `python3 analysis/collect_synth.py` | seconds | `results/synthesis.md`, `.csv` |
 | 4d. one kernel, RTL co-simulation | `make -C kernels/gemv cosim` (needs 4b first) | ~2 h for gemv | printed PASS/FAIL |
-| 5. FPGA speed estimate (from synthesis; **not measured**) | `python3 analysis/fpga_estimate.py` | seconds | `results/fpga_estimate.csv` |
+| 4e. one kernel, Vitis hardware emulation (U55C shell + HBM model) | `make -C kernels/gemv hw_emu` (needs 4b first) | link ~30+ min, then the run | `build/kernels/gemv/hw_emu_run.log` |
+| 5. FPGA speed estimate (from synthesis; **not measured**) | `python3 analysis/fpga_estimate.py` | seconds | `results/fpga_estimate*.csv` |
+| 5b. report charts | `python3 analysis/figures.py` | seconds | `results/figures/` |
 | 6. whole model on kernels | `make -C src/host swsim` | ~30 min | printed tokens, PASS/FAIL |
+| 7. full hardware build, all six kernels (place-and-route, no board needed) | `make -C src/host xclbin_hw` (needs 4b for all kernels) | hours | `build/hw/` (xclbin, `reports/`, `vpp_link.log`) |
 
 ---
 
@@ -126,7 +131,7 @@ test in `results/test_logs/`. Details of every test: `tests/README.md`.
 | `src/host/` | FPGA host program: runs the model by calling the kernels |
 | `kernels/<name>/` | HLS kernels, 4 files each: `kernel.h`, `kernel.cpp` (design), `tb.cpp` (testbench), `Makefile` |
 | `tests/` | **all verification**: `run_all_tests` (levels L1–L4), transformer-block test; `tests/README.md` maps every test |
-| `analysis/` | `analyze.py` (limits, roofline), `collect_synth.py`, `fpga_estimate.py` |
+| `analysis/` | `analyze.py` (work per operator, limits), `collect_synth.py`, `fpga_estimate.py`, `figures.py` (charts) |
 | `results/` | results the scripts produce (CSVs, plots, logs): what goes in a report |
 | `build/` | **all compiled files**: `bin/` (cpu_main, host_main, block_test), `kernels/<name>/` (testbench, `.xo`, HLS reports), `obj/`. Safe to delete; rebuilt by `make` |
 | `third_party/` | llm.c, nanoGPT, TinyGPT (reference code only) |

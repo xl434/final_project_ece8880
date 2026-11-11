@@ -1,0 +1,3 @@
+threads,mem_bandwidth_gbs,fp32_gflops
+1,23.42,98.16
+8,34.06,391.43

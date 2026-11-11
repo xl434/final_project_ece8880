@@ -84,7 +84,7 @@ void LmPE(int port, tapa::istream<float_v16>& x_s, tapa::istream<float_v16>& w_s
 }
 
 void LmMerge(tapa::istreams<float, kLmPorts>& val_s, tapa::istreams<int, kLmPorts>& idx_s,
-             tapa::mmap<int> out_idx, tapa::mmap<float> out_val) {
+             tapa::mmap<float> result) {
   float best_v = -INFINITY;
   int best_i = kKVp;
   for (int p = 0; p < kLmPorts; ++p) {
@@ -95,12 +95,14 @@ void LmMerge(tapa::istreams<float, kLmPorts>& val_s, tapa::istreams<int, kLmPort
       best_i = i;
     }
   }
-  out_idx[0] = best_i;
-  out_val[0] = best_v;
+  // One output buffer (one AXI port): [0] = token ID (exact as a float, it is
+  // < 2^24), [1] = its logit.
+  result[0] = (float)best_i;
+  result[1] = best_v;
 }
 
 void LmHeadKernel(tapa::mmap<float_v16> x, tapa::mmaps<float_v16, kLmPorts> w,
-                  tapa::mmap<int> out_idx, tapa::mmap<float> out_val) {
+                  tapa::mmap<float> result) {
   tapa::streams<float_v16, kLmPorts, 4> x_s("x_s");
   tapa::streams<float_v16, kLmPorts, 32> w_s("w_s");
   tapa::streams<float, kLmPorts, 2> val_s("val_s");
@@ -109,5 +111,5 @@ void LmHeadKernel(tapa::mmap<float_v16> x, tapa::mmaps<float_v16, kLmPorts> w,
       .invoke(LmReadX, x, x_s)
       .invoke<tapa::join, kLmPorts>(LmReadW, w, w_s)
       .invoke<tapa::join, kLmPorts>(LmPE, tapa::seq(), x_s, w_s, val_s, idx_s)
-      .invoke(LmMerge, val_s, idx_s, out_idx, out_val);
+      .invoke(LmMerge, val_s, idx_s, result);
 }

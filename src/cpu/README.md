@@ -8,6 +8,10 @@
   T = prompt length; decode: T = 1), logits only for the last token, optional
   per-operator profiler and activation trace.
 * `cpu_main.cpp` — `generate`, `verify` (vs `data/`), `profile`.
+* `cpu_peaks.cpp` — measures this machine's limits: memory read bandwidth
+  (streaming a 1 GiB array) and FP32 multiply-add peak (registers only).
+  `make -C src/cpu peaks` → `results/cpu_peaks.csv`. Used to show that decode
+  is memory-bound (`PROGRESS_REPORT.md` §2.3).
 
 ```bash
 make -C src/cpu                 # g++ -O3 -march=native -fopenmp -std=c++17 -> build/bin/cpu_main

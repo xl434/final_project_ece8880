@@ -1,4 +1,4 @@
-loaded /home/coder/final_project_ece8880/models/gpt2_124M.bin: 124475904 parameters (497.9 MB FP32) in 340 ms
+loaded /home/coder/final_project_ece8880/models/gpt2_124M.bin: 124475904 parameters (497.9 MB FP32) in 351 ms
 tolerance vs HF: |got-ref| <= 1e-04*max|ref| + 1e-04*|ref|
 first decode step (input token 257 at position 5):
   embed                  n=768     max_abs=0.000e+00 max_rel=0.000e+00 norm_rel=0.000e+00 |ref|max=1.249e+00  PASS

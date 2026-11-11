@@ -1,8 +1,8 @@
 WARNING: Logging before InitGoogleLogging() is written to STDERR
-I20261107 23:13:22.818871 755538 task.h:122] running software simulation with TAPA library
-I20261107 23:13:22.834434 755538 task.h:122] running software simulation with TAPA library
-I20261107 23:13:22.851481 755538 task.h:122] running software simulation with TAPA library
-I20261107 23:13:22.866416 755538 task.h:122] running software simulation with TAPA library
+I20261110 23:12:51.598600 2022563 task.h:122] running software simulation with TAPA library
+I20261110 23:12:51.614097 2022563 task.h:122] running software simulation with TAPA library
+I20261110 23:12:51.629412 2022563 task.h:122] running software simulation with TAPA library
+I20261110 23:12:51.644690 2022563 task.h:122] running software simulation with TAPA library
 GeluKernel, mode: software simulation
   l00_gelu               n=3072    max_abs=2.384e-07 max_rel=1.238e-06 norm_rel=1.362e-07 |ref|max=3.534e+00  PASS
   [vs HF] l00_gelu       max_abs=2.384e-07 max_rel=1.013e-06 norm_rel=9.708e-08
