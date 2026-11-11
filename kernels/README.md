@@ -2,11 +2,11 @@
 
 | kernel | top | function |
 |---|---|---|
-| `gemv/` | `GemvKernel` | y = W x + b (+ residual); 8 HBM ports x 16 FP32 MAC/cycle, 16 interleaved rows/PE, II=1 |
-| `layernorm/` | `LayerNormKernel` | LayerNorm, 16 lanes, three II=1 passes |
+| `gemv/` | `GemvKernel` | Y = X W^T + b (+ residual) for T tokens (decode T = 1, prefill T = prompt); 8 HBM ports, 4 token lanes x 16 FP32 MAC/cycle per PE, 16 interleaved rows/PE, X chunks of 64 tokens in URAM, II=1 |
+| `layernorm/` | `LayerNormKernel` | LayerNorm of T rows, 16 lanes, three II=1 passes per row |
 | `gelu/` | `GeluKernel` | tanh-GELU as x / (1 + exp(-2u)), 16 lanes |
 | `residual/` | `ResidualKernel` | y = a + b, 16 lanes |
-| `attention/` | `AttentionKernel` | KV-cache append + 12 heads in parallel, online softmax |
+| `attention/` | `AttentionKernel` | T new tokens: KV-cache append + causal attention, 12 heads in parallel, online softmax, query blocks of 4 (one update per 12 cycles) |
 | `lm_head/` | `LmHeadKernel` | wte GEMV fused with argmax (8 ports); only {token ID, logit} leaves the chip, in one output buffer |
 
 `common/kernel_common.h` (types, dimensions, adder trees), `common/host_pack.h`
@@ -33,8 +33,19 @@ The testbench is verification level L2 (see `tests/README.md`).
 Each `tb.cpp` uses real activations/weights from `data/` and `models/` plus
 random edge cases and prints `PASS`/`FAIL` (exit status 0/1). After `make hls`,
 `python3 analysis/collect_synth.py` gathers all reports into `results/synthesis.csv`.
-GEMV / LM-head port counts can be changed with `-DGEMV_PORTS=N` / `-DLM_PORTS=N`
-(add to `KERNEL_DEFS` in the Makefile).
+Compile-time parameters (add `-DNAME=value` to `KERNEL_DEFS` in the kernel's
+Makefile):
+
+| parameter | default | effect |
+|---|---|---|
+| `GEMV_PORTS`, `LM_PORTS` | 8 | HBM ports (= PEs) of the GEMV / LM head |
+| `GEMV_TOKENS` | 4 | tokens multiplied per weight word per cycle (prefill speed vs DSPs) |
+| `GEMV_CHUNK` | 64 | tokens whose X rows are held on chip (weights read once per chunk) |
+| `ATTN_II` | 12 | cycles per query update in a head; 48 / `ATTN_II` queries per pass over the cache |
+
+In software simulation TAPA runs each task on a small coroutine stack, so large
+on-chip buffers (the GEMV's X chunk) are heap-allocated there
+(`#ifdef TAPA_TARGET_DEVICE_`).
 
 Two naming pitfalls, both found the hard way:
 - Do not name a kernel or task argument `pos` or `port`: Vitis HLS renames such

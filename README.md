@@ -111,9 +111,10 @@ test in `results/test_logs/`. Details of every test: `tests/README.md`.
 | 4c. collect synthesis results | `python3 analysis/collect_synth.py` | seconds | `results/synthesis.md`, `.csv` |
 | 4d. one kernel, RTL co-simulation | `make -C kernels/gemv cosim` (needs 4b first) | 4 min (residual) to ~2 h (gemv) | printed PASS/FAIL; saved logs in `results/emulation/` |
 | 4e. one kernel, Vitis hardware emulation (U55C platform + HBM model) | `make -C kernels/gemv hw_emu` (needs 4b first) | link ~30 min, run ~2 h for gemv | `build/kernels/gemv/hw_emu_run.log` |
-| 5. FPGA speed estimate (from synthesis; **not measured**) | `python3 analysis/fpga_estimate.py` | seconds | `results/fpga_estimate*.csv` |
+| 5. FPGA speed estimate, decode and prefill (from synthesis; **not measured**) | `python3 analysis/fpga_estimate.py` | seconds | `results/fpga_estimate*.csv`, `results/fpga_prefill_estimate.csv` |
 | 5b. report charts | `python3 analysis/figures.py` | seconds | `results/figures/` |
-| 6. whole model on kernels | `make -C src/host swsim` | ~30 min | printed tokens, PASS/FAIL |
+| 6. whole model on kernels, end to end (prompt in one pass, then generation) | `make -C src/host swsim` | ~30 min | printed tokens, PASS/FAIL |
+| 6b. one layer, every kernel in RTL co-simulation | `build/bin/block_test --layers=0 --xo_dir=build/kernels` (add `--prefill_T=16` for prefill; needs the `.xo` files and the 2024.2 tools on `PATH`) | 1–3 h | printed PASS/FAIL |
 | 7. full hardware build (link + place and route of five kernels; no board needed) | `make -C src/host xclbin_hw` (needs 4b for all kernels) | many hours | `build/hw/` (`gpt2.hw.xclbin`, `reports/`, `vpp_link.log`) |
 | 7b. routed area per kernel (after 7) | `make -C src/host hw_util` | minutes | `build/hw/util_<Kernel>.rpt` |
 

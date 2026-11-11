@@ -7,14 +7,17 @@
 - Tokenization runs on the host CPU.
 
 **Main milestone: all six GPT-2 kernels are implemented, synthesized and
-verified.**
-- Each kernel passes its testbench in software simulation and in RTL
-  co-simulation of the synthesized circuit (§4.4; STATUS_COSIM_HEADER). The GEMV
-  also passes Vitis hardware emulation inside the U55C platform.
-- The whole model running on the kernels (software simulation) reproduces
-  Hugging Face's output token for token.
-- This design is the **baseline**: efficient inside each kernel, inefficient at
-  the system level (§3.5). Later designs will be compared against it.
+verified, for both phases of inference:** prefill (the whole prompt, T tokens
+per kernel call) and decode (one token per call, T = 1).
+- Each kernel passes its testbench, decode and prefill cases, in software
+  simulation and in RTL co-simulation of the synthesized circuit (§4.4;
+  STATUS_COSIM_HEADER). One full layer also runs in RTL co-simulation, every
+  kernel call on its synthesized circuit.
+- End to end (prompt in one pass, then token-by-token generation, software
+  simulation), the generated tokens are identical to Hugging Face (§4.4).
+- The design is **temporal**: efficient inside each kernel, but the kernels run
+  one at a time and pass results through HBM (§3.5). It is the reference for
+  the next, spatial design.
 - No board run yet, so every FPGA speed number below is an **estimate** from
   synthesis reports. All CPU numbers are measured.
 
@@ -32,11 +35,12 @@ verified.**
 4. Correctness is established in four levels, from single kernels up to the whole
    model. All 12 tests pass, and the generated tokens are identical to Hugging
    Face (§4).
-5. From the synthesis reports, the baseline is estimated at **3.2–4× the
-   4-core CPU** (about 125–212 vs 39–53 tokens/s). The limit is at the system
-   level: the kernels run one at a time, pass every result through off-chip
-   memory, and use only 8 of the 32 HBM channels at once. The next design
-   coordinates the kernels with on-chip streams, a *spatial* design (§5, §6).
+5. From the synthesis reports (estimates): decode at **3.2–4× the 4-core CPU**
+   (about 125–212 vs 39–53 tokens/s), and a 992-token prompt in **about 1.2 s
+   vs 7.8 s** on the CPU (§5.3, §5.4). The limit is at the system level: the
+   kernels run one at a time, pass every result through off-chip memory, and
+   use only 8 of the 32 HBM channels at once. The next design coordinates the
+   kernels with on-chip streams, a *spatial* design (§6).
 
 Every number comes from a script in this repository; the source is named next to
 each chart or table. Background and terms (kernel, PE, II, co-simulation, …):
@@ -79,12 +83,19 @@ Generating text has two phases. Both run the same network:
 | KV cache | filled for all prompt tokens | one row appended, all rows read |
 | limited by | arithmetic (for long prompts) | memory bandwidth |
 
-**Decode is the focus of this project.** It runs once per generated token, so it
-dominates the time of any long generation. It is also where an FPGA's memory
-system helps most.
+**Both phases run on the FPGA**, with the same kernels: a kernel call
+processes T tokens, T = the prompt length in prefill and T = 1 in decode
+(§3.3). Prefill is compute-bound, so the kernels reuse each weight they read
+for many prompt tokens; decode is memory-bound, so they stream weights at the
+full port rate. The alternative, feeding the prompt through the decode path
+one token at a time, reads all weights once per prompt token:
 
-In the current FPGA flow, the prompt is fed through the decode kernels one token
-at a time. This is correct but slower than a real prefill (§6).
+| 992-token prompt | time | source |
+|---|---|---|
+| CPU, 8 threads, real prefill (matrix × matrix) | 7.8 s | measured (`results/cpu_profile_summary.csv`) |
+| FPGA, prompt one token at a time (decode path) | about 4.3 s | **estimate** (§5.4) |
+| FPGA, prompt in one pass (prefill path) | **about 1.2 s** | **estimate** (§5.4) |
+| FPGA, ideal compute-bound prefill | about 0.2 s | **estimate**: 194 GFLOP ÷ 1.08 TFLOP/s DSP ceiling (§1.4) |
 
 ### 1.3 How much work one decoded token needs
 
@@ -257,9 +268,11 @@ for each step.
 
 The four weight multiplications share one GEMV kernel, because they are the same
 math with different sizes. The residual add is folded into the GEMV's output stage
-(`y = W x + b + residual`), so it costs no separate pass.
+(`y = W x + b + residual`), so it costs no separate pass. Every kernel takes
+T tokens per call (T = prompt length in prefill, T = 1 in decode); the table
+gives the sizes per token.
 
-| model operator | math | input → output (per token) | kernel | calls per token |
+| model operator | math | input → output (per token) | kernel | calls per pass |
 |---|---|---|---|---|
 | embedding | `x = wte[token] + wpe[pos]` | token ID → 768 | host CPU (a table lookup) | 1 |
 | LayerNorm 1, 2, final | normalize, then scale and shift | 768 → 768 | `LayerNormKernel` | 25 |
@@ -271,8 +284,10 @@ math with different sizes. The residual add is folded into the GEMV's output sta
 | MLP down (FC-proj) + residual | `x = x + W_fcproj g + b` | 3072 → 768 | `GemvKernel` (residual fused) | 12 |
 | LM head + argmax | `argmax(wte · h)` | 768 → 1 token ID | `LmHeadKernel` | 1 |
 
-That makes **98 kernel calls per token**. `ResidualKernel` also exists as a
-standalone kernel for testing the unfused path.
+That makes **98 kernel calls per pass**: per generated token in decode, and once
+for the whole prompt in prefill. (The LM head and the final LayerNorm only run on
+the last prompt token.) `ResidualKernel` also exists as a standalone kernel for
+testing the unfused path.
 
 ### 3.2 Common design approach and optimizations
 
@@ -302,75 +317,102 @@ Every kernel follows the same recipe:
 
 | kernel | pipeline | parallel work per cycle | partitioning / storage | dataflow tasks | ports busy* |
 |---|---|---|---|---|---|
-| GEMV | II = 1 | 8 PEs × 16 multiply-adds (128) | adder trees in registers; 16 accumulators per PE in LUTRAM | ReadX → 8 × (ReadW → PE) → WriteY | 98.7% |
+| GEMV | II = 1 | 8 PEs × 4 tokens × 16 multiply-adds (512); decode uses 1 token lane (128) | adder trees in registers; accumulators (16 rows × 64 tokens) per PE in LUTRAM; X rows of 64 tokens per PE in URAM | ReadX → 8 × (ReadW → PE) → WriteY | 98.7% (decode) |
 | LM head | II = 1 | 8 PEs × 16 multiply-adds + running max | as GEMV, plus best value/index per row | ReadX → 8 × (ReadW → PE) → Merge | ~100% |
-| attention | II = 1 (K/V stream); head update II = 12, needed only every 48 cycles | 12 heads in parallel, each a 64-wide dot product | q, k, v and output accumulators in registers | ReadQkv → Kv → 12 × Head → Write | 99.7% |
+| attention | II = 1 (K/V stream); head update II = 12 | 12 heads in parallel; each keeps 4 queries and updates one every 12 cycles (48 cycles per K/V row) | per-query q, running max, sum and 64-wide output in LUTRAM | Kv → 12 × Head → Write | 99.7% (decode) |
 | LayerNorm | II = 1 | 16 values | 8 rotating partial sums in registers | Read → Core → Write | (1.4 µs call) |
 | GELU | II = 1 | 16 values, 16 `exp` units | — | Read → Core → Write | 75% |
 | residual | II = 1 | 16 values | — | Read → Add → Write | (0.2 µs call) |
 
-\* Data words moved ÷ total cycles, from the synthesis report (GEMV: FC layer;
-attention: position 1023). For LayerNorm and residual the fixed overhead
-dominates, because a call moves only 48 words.
+\* Data words moved ÷ total cycles in decode (GEMV: FC layer; attention: position
+1023). For LayerNorm and residual the fixed overhead dominates, because a decode
+call moves only 48 words. In prefill the GEMV is compute-bound: a PE needs a new
+weight word only every 16 cycles for a 64-token chunk.
 
 **How much hardware this is.** An FPGA has no fixed number of PEs; it has raw
 resources (1.3 M LUTs, 9,024 DSPs, BRAM, URAM), and a PE is what we build from
-them. An FP32 multiply costs about 3 DSPs and an add about 2, so one GEMV PE
-(16 multiplies + 16 adds) uses 82 DSPs.
+them. An FP32 multiply costs about 3 DSPs and an add about 2, so one 16-lane
+dot product (16 multiplies + 16 adds) uses about 82 DSPs.
 
 | kernel | compute units | DSPs | share of chip DSPs |
 |---|---|---|---|
-| GEMV | 8 PEs | 684 | 7.6% |
+| GEMV | 8 PEs × 4 token lanes | 2,735 | 30.3% |
+| attention | 12 heads | 2,652 | 29.4% |
 | LM head | 8 PEs | 640 | 7.1% |
-| attention | 12 heads | 2,460 | 27.3% |
-| LayerNorm | 1 core, 16 lanes | 166 | 1.8% |
 | GELU | 1 core, 16 lanes | 416 | 4.6% |
-| **total (without the residual kernel)** | **30 units** | **4,366** | **48%** |
+| LayerNorm | 1 core, 16 lanes | 166 | 1.8% |
+| **total (without the residual kernel)** | | **6,609** | **73%** |
+
+![kernel resources](results/figures/kernel_resources.png)
+
+*`results/figures/kernel_resources.png`: HLS estimates; the decode-only kernels
+of the first version (`results/synthesis_baseline.csv`) for comparison.*
 
 **What this shows.**
-- **Compute is not the limit.** The DSPs alone would allow over 100 GEMV-sized
-  PEs. We build 8 per weight kernel because each PE needs its own HBM port to be
-  fed, and the chip has 32 ports.
-- **Inside each kernel, the design is efficient.** The large kernels move a new
-  word on every port in 99–100% of their cycles.
+- **Prefill support costs DSPs, mostly in the GEMV.** Four token lanes per PE
+  quadruple its multipliers (684 → 2,735 DSPs); they give 512 multiply-adds per
+  cycle, which is what makes prefill compute-bound instead of memory-bound.
+  Attention grows only slightly (2,460 → 2,652): its heads were idle 75% of the
+  time in decode, and prefill fills that time with more queries.
+- **The total is close to the routability guideline** (Lab 4: 80% DSP, 60% LUT):
+  73% of DSPs and 58% of LUTs, before the platform shell. Both trade-offs are
+  parameters: `GEMV_TOKENS = 2` saves about 1,350 DSPs (prefill GEMMs about 2×
+  slower); `ATTN_II = 4` makes prefill attention 3× faster for about 1,500 more
+  DSPs.
+- **Inside each kernel, the design is efficient.** In decode the large kernels
+  move a new word on every port in 99–100% of their cycles.
 - **Across kernels, most hardware is idle,** because only one kernel runs at a
   time (§3.5).
 
 ### 3.3 The kernels
 
-#### GEMV (`kernels/gemv`): the core kernel
+#### GEMV / GEMM (`kernels/gemv`): the core kernel
 
-- **Math:** `y[o] = Σ_c W[o][c] · x[c] + b[o] (+ residual[o])` for o = 1..OC.
-  - Shapes: x has C = 768 or 3072 values; W is OC × C; y has OC = 768, 2304 or
-    3072 values.
-- **Type of computation:** matrix × vector. Every output is a **reduction**, a sum
-  over C products, and all outputs are independent of each other.
-- **The difficulty:** a floating-point add takes several cycles. A plain
-  `acc += w*x` loop must wait for the previous add before starting the next, so it
-  cannot accept a new input every cycle.
+- **Math:** `Y[t][o] = Σ_c W[o][c] · X[t][c] + b[o] (+ R[t][o])` for tokens
+  t = 1..T and outputs o = 1..OC.
+  - Shapes: X is T × C (C = 768 or 3072); W is OC × C; Y is T × OC (OC = 768,
+    2304 or 3072). Decode: T = 1 (matrix × vector). Prefill: T = prompt length
+    (matrix × matrix).
+- **Type of computation:** every output is a **reduction**, a sum over C
+  products; all outputs are independent.
+- **The difficulties:**
+  - A floating-point add takes several cycles, so a plain `acc += w*x` loop
+    cannot accept a new input every cycle.
+  - Decode needs every weight once (memory-bound); prefill needs every weight T
+    times (compute-bound). One design has to do both well.
 - **Design:**
   ```
-  x  ──ReadX──► broadcast to 8 PEs (x kept on chip)
-  W port 0 ──ReadW──► PE 0 ─┐
-  W port 1 ──ReadW──► PE 1 ─┤
-     ...                    ├─► WriteY (+ bias, + residual) ──► y
-  W port 7 ──ReadW──► PE 7 ─┘
+  X ──ReadX──► broadcast to 8 PEs; each PE keeps the X rows of up to 64 tokens (URAM)
+  W port 0 ──ReadW──► PE 0 ─┐   each weight word × 4 tokens per cycle,
+  W port 1 ──ReadW──► PE 1 ─┤   held for ceil(tokens/4) cycles
+     ...                    ├─► WriteY (one 512-bit word per token and row block,
+  W port 7 ──ReadW──► PE 7 ─┘            + bias, + residual) ──► Y
   ```
-  - **8 processing elements (PEs), one per HBM port.** Each PE takes one 512-bit
-    word of weights per cycle, multiplies it by the matching 16 values of x, and
-    adds the 16 products with an adder tree. That is 16 multiply-adds per PE per
-    cycle, **128 per cycle** in total.
+  - **8 processing elements (PEs), one per HBM port.** Each PE multiplies a
+    512-bit weight word with the matching 16 values of **4 tokens at once**
+    (4 adder trees): 64 multiply-adds per PE per cycle, 512 in total.
+  - **Token chunks.** Tokens are processed in chunks of up to 64. A chunk's X
+    rows are loaded into each PE once, then the weights are streamed once for the
+    whole chunk: each weight word stays in the PE for ceil(tokens / 4) cycles
+    (16 cycles for a full chunk). Weights are therefore read once per 64 tokens.
+  - **Decode is the 1-token case:** a weight word stays one cycle, so the PE
+    takes a new word every cycle, exactly like a pure GEMV.
   - **16 interleaved rows per PE** hide the add latency. A PE works on 16 output
-    rows in turn: row 0's first word, row 1's first word, …, row 15's first word,
-    then row 0's second word, and so on. Each running sum is touched only every 16
-    cycles, which is longer than the adder latency, so the loop runs at II=1.
+    rows in turn, so each running sum is reused only every 16 × ceil(tokens / 4)
+    cycles, longer than the adder latency: the loop runs at II = 1.
   - **The weights are re-ordered once on the host** (`kernels/common/host_pack.h`)
-    so that each port reads exactly this sequence, purely sequentially. That gives
-    long, efficient memory bursts.
-  - **Parameters:** the number of ports and of interleaved rows are compile-time
-    constants (`GEMV_PORTS`).
-- **Cost:** about C·OC / 128 cycles + 240 cycles overhead. Example: the FC layer
-  (768 → 3072) takes 18,672 cycles = 62 µs at 300 MHz.
+    so that each port reads one sequential stream: long, efficient bursts.
+  - **Output:** each PE delivers 16 consecutive outputs of a row block per token;
+    the writer assembles them into one 512-bit word, adds bias and residual, and
+    writes it.
+  - **Parameters:** `GEMV_PORTS` (8), `GEMV_TOKENS` (4 token lanes),
+    `GEMV_CHUNK` (64 tokens).
+- **Cost:**
+  - Decode: about C·OC / 128 cycles + 240. The FC layer (768 → 3072) takes
+    18,672 cycles = 62 µs at 300 MHz, the same as the decode-only GEMV.
+  - Prefill, per 64-token chunk: C·OC / 128 × 16 cycles of compute + 64·C/16 to
+    load X. The FC layer for 992 tokens takes about 4.6 M cycles = 15 ms, versus
+    992 × 62 µs = 62 ms token by token.
 
 #### LM head + argmax (`kernels/lm_head`)
 
@@ -398,41 +440,57 @@ them. An FP32 multiply costs about 3 DSPs and an add about 2, so one GEMV PE
 
 #### Attention with KV cache (`kernels/attention`)
 
-- **Math:** for each of the 12 heads h, with q, k, v of size 64 and position
-  t = 0..pos:
-  - `s_t = (q · k_t) / 8`
-  - `out = Σ_t softmax(s)_t · v_t`
-  - Shapes: 2304 values (q, k, v of the new token) plus the cached K and V (pos × 768
-    each) in; 768 values out. The new k and v are also appended to the cache.
-- **Type:** two reductions over all past positions: a dot product per position,
-  then a softmax-weighted sum. The heads are independent.
-- **The difficulty:** a normal softmax needs the maximum score first. That means
-  either storing all scores or reading the cache twice.
-- **Design: online softmax in one pass.** Each head keeps a running maximum *m*, a
-  running sum *l* and a running 64-wide output, and updates them as each position
-  streams in:
-  `m' = max(m, s)`, `l' = l·e^(m−m') + e^(s−m')`, `acc' = acc·e^(m−m') + e^(s−m')·v`.
-  - At the end, `out = acc / l`. The cache is read exactly once.
+- **Math:** for each of the 12 heads h and each new token t (position
+  p_t = pos0 + t), with q, k, v of size 64:
+  - `s_j = (q_t · k_j) / 8` for cache rows j = 0..p_t (causal: a token sees only
+    itself and earlier tokens)
+  - `out_t = Σ_j softmax(s)_j · v_j`
+  - Shapes: T × 2304 (q, k, v of the new tokens) plus the cached K and V
+    (pos0 × 768 each) in; T × 768 out. The T new k, v rows are appended to the
+    cache. Decode: T = 1.
+- **Type:** two reductions over all visible positions: a dot product per
+  position, then a softmax-weighted sum. Heads are independent; tokens differ
+  only in how many rows they see.
+- **The difficulties:**
+  - A normal softmax needs the maximum score first: either storing all scores or
+    reading the cache twice.
+  - Reading the whole cache once per prompt token would make prefill slow
+    (quadratic traffic).
+- **Design: online softmax in one pass, several queries per pass.** Each query
+  keeps a running maximum *m*, a running sum *l* and a running 64-wide output,
+  updated as each row streams in:
+  `m' = max(m, s)`, `l' = l·e^(m−m') + e^(s−m')`, `acc' = acc·e^(m−m') + e^(s−m')·v`;
+  at the end `out = acc / l`.
   ```
-  qkv ──ReadQkv──► q to each head; k, v ──► Kv: append to cache, then stream
-                                            all K/V rows (K and V on separate ports)
-                                                  │
-                         12 × Head (online softmax, in parallel) ──► Write ──► out
+  qkv, K cache, V cache ──Kv──► per query block: the block's q vectors, then every
+                                K/V row 0 .. last query's position (old rows from
+                                the cache, new rows from qkv, also written to the cache)
+                                    │ each head gets its 64-float slice of each row
+                    12 × Head (4 query slots each, online softmax) ──► Write ──► out
   ```
-  - **All 12 heads run in parallel.** Each takes its 4-word (64-value) slice of
-    every K and V row.
-  - **K and V on separate ports.** One position, 48 words, arrives every 48 cycles.
-    A head needs only 12 cycles per position, so the heads are never the
-    bottleneck.
-  - The new token's k and v are forwarded from on-chip memory instead of being
-    read back from HBM.
-- **Cost:** 48 cycles per cached position. At position 1023 that is 49,229 cycles =
-  164 µs per layer. It grows linearly with the context.
+  - **All 12 heads run in parallel.**
+  - **Query blocks of 4.** A row arrives every 48 cycles (one K and one V word
+    per cycle). A head spends 12 cycles per query update (II = 12, which lets
+    HLS share its multipliers), so it serves 4 queries per row. Prefill streams
+    the cache once per 4 prompt tokens instead of once per token; decode is a
+    block with one query, at the same 48 cycles per row as before.
+  - **Causal mask:** query i of a block only updates on rows up to its own
+    position.
+  - **New K/V rows come straight from the qkv input** (and are written to the
+    cache on the way), so there is no read-after-write through HBM. They arrive
+    at half rate (K and V words share the qkv port: 96 cycles per row).
+  - **Parameter:** `ATTN_II` (12): II = 4 gives 12 queries per block, about 3×
+    faster prefill attention for about 1,500 more DSPs.
+- **Cost:** decode at position p: about 48·p + 96 cycles + 125; at position
+  1023, 164 µs per layer, as before. Prefill of 992 tokens from position 0:
+  about 11.9 M cycles = 40 ms per layer at the full port rate, 53 ms
+  HBM-limited (estimates, §5.4); this is now the largest part of prefill.
 
 #### LayerNorm (`kernels/layernorm`)
 
-- **Math:** `μ = mean(x)`, `σ² = mean((x−μ)²)`, `y = (x−μ)/√(σ²+10⁻⁵) · γ + β`.
-  - Shapes: 768 in → 768 out, plus γ and β (768 each).
+- **Math:** `μ = mean(x)`, `σ² = mean((x−μ)²)`, `y = (x−μ)/√(σ²+10⁻⁵) · γ + β`,
+  for each of the T rows.
+  - Shapes: T × 768 in → T × 768 out, plus γ and β (768 each).
 - **Type:** two reductions (mean, variance) and then an elementwise step. The
   elementwise step depends on both reductions, so the row is kept on chip.
 - **Design:** three pipelined passes over the 48 words of the row:
@@ -446,14 +504,18 @@ them. An FP32 multiply costs about 3 DSPs and an add about 2, so one GEMV PE
   x ──ReadX──► Core: pass 1 Σx → μ;  pass 2 Σ(x−μ)² → σ²;  pass 3 (x−μ)/σ·γ+β ──► Write ──► y
                (row buffered on chip; γ, β loaded once)
   ```
-- **Cost:** 420 cycles = 1.4 µs.
+- **Cost:** 420 cycles = 1.4 µs for one row (decode); rows are processed one
+  after another, about 254 cycles each (estimate; prefill of 992 tokens: about
+  0.8 ms per call).
+  Rows are independent, so overlapping the three passes across rows would make
+  this about 3× faster; at 2% of prefill time it has not been done.
 
 #### GELU (`kernels/gelu`)
 
 - **Math:** `GELU(x) = 0.5·x·(1 + tanh(u))`, with `u = √(2/π)·(x + 0.044715·x³)`.
   It is implemented as the equivalent `x / (1 + e^(−2u))`, which needs one `exp`
   instead of a `tanh`.
-  - Shapes: 3072 → 3072.
+  - Shapes: T × 3072 → T × 3072.
 - **Type:** purely **elementwise**; no element depends on another.
 - **Design:** 16 values per cycle through a pipelined arithmetic chain.
   ```
@@ -508,13 +570,13 @@ changes bring the design to exactly 32:
 This limit matters for the next design too: more ports for the weights means
 fewer ports for everything else.
 
-### 3.5 System level: how the kernels work together (the baseline)
+### 3.5 System level: how the kernels work together (temporal design)
 
 **Dataflow inside each kernel, temporal between kernels.**
 
 ```
  time ──►
- host:  launch LN ─ launch GEMV(QKV) ─ launch Attention ─ launch GEMV(proj) ─ … (98 launches per token)
+ host:  launch LN ─ launch GEMV(QKV) ─ launch Attention ─ launch GEMV(proj) ─ … (98 launches per pass)
  FPGA:  [LN busy]   [GEMV busy      ]  [Attention busy ]  [GEMV busy      ]
         others idle  others idle        others idle        others idle
  HBM:   every kernel reads its inputs from HBM and writes its result back;
@@ -532,6 +594,11 @@ fewer ports for everything else.
   - It gives clean reference points (cycles per kernel, tokens/s) for later
     designs. It is the **baseline** they will be compared with.
 
+**Prefill and decode use the same flow.** A pass is the same 98 kernel calls in
+both phases; only T changes. The whole prompt is one pass (98 calls), and every
+generated token is one more pass. Feeding a 992-token prompt through the decode
+path instead would take 992 passes, 97,216 calls, and read all weights 992 times.
+
 **What the system-level cost actually is.** The off-chip traffic of a token is
 dominated by the weights (495 MB) and the KV cache (up to 76 MB). These must be
 read for every token in any design, because they do not fit on chip. The
@@ -543,7 +610,7 @@ is what they force:
    memory ports, sit idle.
 2. **Few active channels.** While the GEMV runs, only its 8 weight channels
    stream (attention: only 2). The bandwidth bound assumes all 32.
-3. **98 launches per token,** each with host overhead.
+3. **98 launches per generated token,** each with host overhead.
 
 §5.3 shows these three are what separate the estimate (≈ 20% of the bandwidth
 bound) from the bound. The next design addresses them with a better
@@ -613,18 +680,18 @@ Face by L1.
 |---|---|---|---|
 | **L1** CPU vs Hugging Face | prompt "The FPGA is" and the 992-token prompt | 147 intermediate tensors + 32 + 32 output tokens | our C++ model computes GPT-2 correctly, including at full context |
 | **L2** kernel vs CPU | real GPT-2 activations and weights from `data/`, plus edge cases (table below) | the CPU function for that operator | each kernel is correct on its own, including corner cases |
-| **L3** one layer from kernels vs CPU | Hugging Face's input to layers 0 and 11, with the real KV cache | all 8 intermediate values of the layer and the KV-cache rows | the kernels work together: data layouts, weight packing, cache handling |
-| **L4** whole model on kernels | prompt "The FPGA is" | Hugging Face's 32 generated tokens, exact match | end-to-end correctness. At the first step the top two candidates differ by only 0.19 in logit, so any real error would change the generated text |
+| **L3** one layer from kernels vs CPU | decode: Hugging Face's input to layers 0 and 11, with the real KV cache; prefill: the first 100 tokens of the long prompt (real activations from the CPU model) in one pass | all 8 intermediate values of the layer and the KV-cache rows | the kernels work together, in both phases: data layouts, weight packing, cache handling, causal mask |
+| **L4** end to end: whole model on kernels, prompt (prefill) then generation (decode) | prompt "The FPGA is"; the 992-token prompt | Hugging Face's generated tokens, exact match | end-to-end correctness. At the first step the top two candidates differ by only 0.19 in logit, so any real error would change the generated text |
 
 **Edge cases at level L2** and what each one is designed to catch:
 
 | kernel | real-data cases | edge cases (why) |
 |---|---|---|
-| GEMV | all four shapes: QKV, attn-proj + residual, FC, FC-proj + residual | smallest legal size, C = 16 × OC = 128 (loop boundaries); C = 3072 with values up to 2600 (long sums, large magnitudes) |
+| GEMV | all four shapes: QKV, attn-proj + residual, FC, FC-proj + residual (decode) | smallest legal size, C = 16 × OC = 128 (loop boundaries); C = 3072 with values up to 2600 (long sums, large magnitudes); prefill with real weights: T = 5 (short prompt), T = 64 (exactly one chunk), T = 131 with residual (three chunks, last one and its token group partial) |
 | LayerNorm | layers 0, 6, 11 and the final LayerNorm (inputs up to ±200) | 4 rows at once (row handling); inputs offset by 1000, checked against an FP64 reference (cancellation when subtracting the mean) |
 | GELU | MLP values of layers 0, 5, 11 | dense sweep over [−20, 20] (saturated tails, overflow of `exp`) |
 | residual | two real residual adds | random values up to 1000 (must be bit-exact) |
-| attention | layers 0, 6, 11 at position 5 with the Hugging Face cache | position 0 (output must equal v); position 1023 with large scores (full context, softmax stability); checks that the new cache row is written and nothing else changes |
+| attention | layers 0, 6, 11 at position 5 with the Hugging Face cache (decode) | position 0 (output must equal v); position 1023 with large scores (full context, softmax stability); prefill: 5 tokens after 3 cached rows, 100 tokens from position 0 (25 query blocks), 50 tokens after 200 cached rows (causal mask, old and new rows); every case checks that exactly the new cache rows are written |
 | LM head | the real final hidden state with the real vocabulary matrix | two identical rows (tie → lower index); maximum in the last real row 50,256 (boundary); the real case also checks that padded rows are masked |
 
 **Four ways to run the same testbench** (`kernels/<name>/tb.cpp`), each closer
@@ -640,40 +707,46 @@ to the real hardware:
 - **Board** (`--bitstream=*.xclbin`): not run yet.
 
 Running the whole model as RTL is not practical (one token is about 1.4 M
-cycles plus 98 launches; days of simulation). The standard approach, used here,
-is: every kernel as RTL on real and edge-case inputs, and the whole model in
-software simulation.
+cycles plus 98 launches; days of simulation). The approach used here: every
+kernel as RTL on real and edge-case inputs; **one full layer as RTL** (every
+kernel call of the layer on its synthesized circuit, `block_test --xo_dir`), for
+a decode step and for a 16-token prefill pass; and the whole model in software
+simulation.
 
 ### 4.4 Results
 
-`tests/run_all_tests` (46 min, `results/test_summary.md`): **12 of 12 tests pass.**
+`tests/run_all_tests` (`results/test_summary.md`): TESTS_STATUS
 
 | level | tests | result |
 |---|---|---|
 | L1 | CPU vs Hugging Face | 147/147 tensors, 32/32 + 32/32 tokens |
-| L2 | 6 kernels, 35 cases | all pass |
-| L3 | layers 0 and 11, residual fused and unfused | 20/20 values each |
-| L4 | 8 tokens with attention + GELU on CPU; 8 tokens unfused; 32 tokens all on kernels | 8/8, 8/8, 32/32 tokens |
+| L2 | 6 kernels, 44 cases (decode and prefill) | all pass |
+| L3 | layers 0 and 11: decode (residual fused and unfused), and a 100-token prefill | 20/20 values each |
+| L4 | end to end, prompt in one pass: 8 tokens with attention + GELU on CPU; 8 tokens unfused; 32 tokens all on kernels; 992-token prompt + 8 tokens. Prompt token by token: 8 tokens | E2E_STATUS |
 
 The errors are far inside the tolerance:
 - On real GPT-2 data, the worst kernel error is below 4 × 10⁻⁷ of the tensor's
   largest value, about 250× inside the limit.
 - The hardest synthetic case (LayerNorm with inputs offset by 1000, against FP64)
   reaches 2.4 × 10⁻⁵, still 4× inside.
-- The worst error in a whole layer (L3) is 6.7 × 10⁻⁷.
+- The worst error in a whole layer (L3) is 6.7 × 10⁻⁷ in decode. In the
+  100-token prefill layer the largest element-wise relative error is 3.0 × 10⁻⁵
+  (MLP values of layer 0), inside the 10⁻⁴ limit: attention over up to 100
+  positions accumulates more rounding than over 6.
 
 **What ran at which level:**
 
 | | software simulation | RTL co-simulation | Vitis hardware emulation |
 |---|---|---|---|
-| GEMV | 6/6 pass | 6/6 pass (2 h 14 min) | 6/6 pass |
+| GEMV (decode + prefill) | 9/9 pass | COSIM_GEMV | decode-only version: 6/6 pass |
+| attention (decode + prefill) | 16/16 pass | COSIM_ATTENTION | — |
 | LM head | 6/6 pass | COSIM_LM_HEAD | — |
-| attention | 10/10 pass | COSIM_ATTENTION | — |
 | LayerNorm | 6/6 pass | 6/6 pass (7 min) | — |
 | GELU | 4/4 pass | 4/4 pass (6 min) | — |
 | residual | 3/3 pass | 3/3 pass (4 min) | — |
-| one layer (L3) | 20/20 values, layers 0 and 11 | not practical | — |
-| whole model (L4) | 32/32 tokens | not practical | — |
+| one layer, decode step | 20/20 values, layers 0 and 11 | LAYER_DECODE | — |
+| one layer, prefill pass | 20/20 values, 100 tokens, layers 0 and 11 | LAYER_PREFILL | — |
+| whole model, end to end | 32/32 tokens (5-token prompt); 992-token prompt: E2E_992 | not practical | — |
 
 The RTL runs give the same errors as software simulation, so the synthesized
 circuits compute the same results as the C++.
@@ -695,40 +768,48 @@ re-synthesized.
 `make hls` in each kernel folder turns the C++ into a circuit with Vitis HLS
 2024.2, for the U55C chip at a 300 MHz target. `analysis/collect_synth.py`
 gathers the reports. These are HLS **estimates**; the place-and-route results
-come from the hardware build (§5.4).
+come from the hardware build (§5.5).
 
-| kernel | latency measured for | cycles | time at 300 MHz | worst II | est. max clock | LUT | FF | DSP | BRAM |
-|---|---|---|---|---|---|---|---|---|---|
-| gemv | FC layer, 768 → 3072 | 18,672 | 62.2 µs | 1 | 411 MHz | 5.7% | 4.5% | 7.6% | 5.0% |
-| layernorm | one 768 row | 420 | 1.4 µs | 1 | 374 MHz | 2.1% | 1.4% | 1.8% | 1.5% |
-| gelu | 3072 values | 257 | 0.9 µs | 1 | 411 MHz | 2.3% | 1.5% | 4.6% | 0.7% |
-| residual | 768 values | 61 | 0.2 µs | 1 | 411 MHz | 0.9% | 0.6% | 0.4% | 1.1% |
-| attention | position 1023, one layer | 49,229 | 164 µs | 12* | 380 MHz | 18.0% | 19.6% | 27.3% | 2.2% |
-| lm_head | 50,304 rows | 301,959 | 1006 µs | 2* | 411 MHz | 5.9% | 4.5% | 7.1% | 5.0% |
+| kernel | call | cycles | time at 300 MHz | worst II | est. max clock | LUT | FF | DSP | BRAM | URAM |
+|---|---|---|---|---|---|---|---|---|---|---|
+| gemv | decode, FC layer 768 → 3072 | 18,672 | 62.2 µs | 1 | 411 MHz | 16.6% | 14.6% | 30.3% | 4.5% | 26.7% |
+| | prefill, FC layer, one 64-token chunk | 298,000 | 993 µs | | | | | | | |
+| attention | decode, position 1023, one layer | 49,400 | 165 µs | 12* | 383 MHz | 31.2% | 37.0% | 29.4% | 2.2% | 0 |
+| | prefill, 992 tokens, one layer | 11.9 M | 40 ms | | | | | | | |
+| lm_head | 50,304 rows | 301,959 | 1006 µs | 2* | 411 MHz | 5.8% | 4.5% | 7.1% | 5.0% | 0 |
+| layernorm | one 768 row | 420 | 1.4 µs | 1 | 374 MHz | 2.1% | 1.4% | 1.8% | 1.5% | 0 |
+| gelu | 3072 values | 257 | 0.9 µs | 1 | 411 MHz | 2.3% | 1.5% | 4.6% | 0.7% | 0 |
+| residual | 768 values | 61 | 0.2 µs | 1 | 411 MHz | 0.9% | 0.6% | 0.4% | 1.1% | 0 |
 
 *Source: `results/synthesis.md`. Percentages are of the whole chip; the platform
-shell's share is not subtracted.*
+shell's share is not subtracted. GEMV and attention take a variable number of
+tokens, so their HLS latency is reported for the largest call; the cycles shown
+here follow from the loop structure (pipelined at the II shown) and the fixed
+overhead of the decode-only versions (`analysis/fpga_estimate.py`).*
 
 How to read it:
 - **"Worst II" = 1 means the streaming loops accept a new 512-bit word every
   cycle,** which was the design goal.
-  - \* In attention, the II = 12 loop is the per-position head update. It only
-    receives a new position every 48 cycles, so it is not the bottleneck.
+  - \* In attention, the II = 12 loop is the head update of one query. With 4
+    query slots it handles one K/V row every 48 cycles, the rate rows arrive.
   - \* In the LM head, the II = 2 loops are the final merges, which run once per
     call.
-- **The cycle counts match the design formulas** from §3.3: words per port plus a
-  small fixed overhead (240 cycles for the GEMV, 135 for the LM head, 125 for
-  attention). This means the hardware streams as intended.
+- **The decode cycle counts match the design formulas** from §3.3: words per
+  port plus a small fixed overhead (240 cycles for the GEMV, 135 for the LM head,
+  125 for attention), the same as the decode-only kernels: supporting prefill did
+  not slow decode down.
 - **Every kernel meets the 300 MHz target with margin** (374–411 MHz estimated).
-- **Area:** all six kernels together use about 35% of the LUTs and 49% of the DSPs,
-  with attention the largest (12 parallel heads). There is room to add more GEMV
-  ports.
+- **Area:** the five kernels of the hardware build use about 73% of the DSPs,
+  58% of the LUTs, 59% of the flip-flops and 27% of the URAMs (§3.2). That is
+  close to the routability guideline; the parameters in §3.2 can trade prefill
+  speed for area if place-and-route needs it.
 
 ### 5.2 Kernel speed compared with the CPU
 
 **How the FPGA time is estimated** (`analysis/fpga_estimate.py`). For each call,
-cycles = (data words per port) + (fixed overhead taken from the synthesis report).
-The time is cycles ÷ 300 MHz.
+cycles = (streaming cycles, from the loop structure of the kernel at its
+synthesized II) + (fixed overhead taken from the synthesis report). The time is
+cycles ÷ 300 MHz.
 - One 512-bit port at 300 MHz can request 19.2 GB/s, but one HBM channel delivers
   at most about 14.4 GB/s. The memory-streaming kernels are therefore slowed by
   19.2 / 14.4 = 1.33×. We call this "HBM-limited".
@@ -768,11 +849,31 @@ What it shows, compared with the 8-thread CPU:
   
   These are design choices of this stage, not hardware limits (§6).
 
-### 5.4 Hardware build (place and route)
+### 5.4 Prefill speed (estimate)
+
+![prefill time](results/figures/prefill_time.png)
+
+*`results/figures/prefill_time.png`, `results/fpga_prefill_estimate.csv`. CPU
+measured (the prompts of the CPU profile, §2.1); FPGA estimated, HBM-limited, no
+launch cost.*
+
+- **Prompt in one pass: about 1.2 s for 992 tokens**, versus 7.8 s on the
+  8-thread CPU (6.3×) and about 4.3 s if the FPGA fed the prompt through the
+  decode path one token at a time. For 96 tokens: 0.065 s vs 0.83 s.
+- **The GEMMs are now compute-bound** (512 multiply-adds per cycle), as the
+  roofline says prefill should be (§1.4): 0.56 s of the 1.2 s.
+- **Attention is now the largest part (0.64 s, 52%).** Two reasons, both
+  design choices of this version: only 4 queries share one pass over the cache
+  (`ATTN_II = 12`), and new K/V rows arrive at half rate because K and V words
+  share the qkv port. Both are the first things to improve (§6).
+- The ideal compute-bound prefill is about 0.2 s (§1.4), so prefill reaches
+  roughly 15% of the chip's arithmetic.
+
+### 5.5 Hardware build (place and route)
 
 `make -C src/host xclbin_hw` links the five kernels of the hardware build into
 the U55C platform with the HBM plan, then runs Vivado synthesis, placement and
-routing. It answers what HLS can only estimate: does the baseline fit and route
+routing. It answers what HLS can only estimate: does the design fit and route
 on the chip, and at what clock?
 
 **Status:** HW_BUILD_STATUS
@@ -790,11 +891,13 @@ Getting the build to run needed three fixes, each found by a failed attempt:
 
 1. **No board numbers yet.** All FPGA speeds are estimates. The real HBM
    efficiency and the launch overhead can only be measured on the board.
-2. **Routing and clock.** Whether all five kernels plus the platform shell route
-   across the chip's three regions (SLRs) at 300 MHz is known only when the full
-   hardware build finishes. Attention is the largest kernel (27% of DSPs).
-3. **Launch overhead.** 98 kernel calls per token: at 10–50 µs each, that is
-   1–5 ms per token, comparable to the compute time itself.
+2. **Routing and clock.** The kernels use 73% of the DSPs and 58% of the LUTs
+   before the platform shell (§3.2), close to the routability guideline. Whether
+   they route across the chip's three regions (SLRs) at 300 MHz is known only
+   when the full hardware build finishes. Fallbacks: `GEMV_TOKENS = 2`
+   (−1,350 DSPs), and narrower attention streams (fewer LUTs).
+3. **Launch overhead.** 98 kernel calls per generated token: at 10–50 µs each,
+   that is 1–5 ms per token, comparable to the compute time itself.
 4. **Host program not board-ready.** `tapa::invoke` copies buffers on every call,
    and TAPA's runtime drives one kernel per FPGA image. A board run of the whole
    model needs a host written with XRT that keeps weights and the KV cache in
@@ -803,9 +906,9 @@ Getting the build to run needed three fixes, each found by a failed attempt:
 
 ### Next steps
 
-**The baseline stays as the reference point.** It is verified end to end, and
-its per-kernel cycle counts and estimated tokens/s are what later designs will
-be compared against.
+**This temporal design stays as the reference point.** It is verified end to
+end for prefill and decode, and its per-kernel cycle counts and estimated
+speeds are what later designs will be compared against.
 
 The main finding of this stage is that the kernels are efficient but the
 system-level dataflow is not (§3.5). So the next design changes how the kernels
@@ -833,9 +936,13 @@ are coordinated, not the kernels' arithmetic:
    Batch-1 decode stays memory-bound: all weights must still be read for every
    token, so the bound of about 800 tokens/s (§1.4) does not move. The spatial
    design's goal is to get close to it, from about 20% today.
-3. **Real prefill.** A matrix × matrix mode that reuses each weight across all
-   prompt tokens. Prefill is compute-bound (§1.4), which is where a spatial design
-   gains the most.
+3. **Faster prefill attention** (52% of prefill time, §5.4).
+   - Write the new K/V rows to the cache first (one short pass), so every row is
+     then read from two ports at full rate instead of from the qkv port at half
+     rate: about 2× for long prompts.
+   - More queries per pass: `ATTN_II = 4` (12 queries) is about 3× faster for
+     about 1,500 DSPs; in a spatial design, DSPs freed elsewhere can pay for it.
+   - LayerNorm across rows (2% of prefill): overlap its three passes.
 4. **Lower precision (later stage, not started).** FP16 or INT8 weights halve or
    quarter the bytes per token, which roughly doubles or quadruples the speed
    limit of a memory-bound workload. The verification chain built here is reused.
@@ -850,8 +957,12 @@ are coordinated, not the kernels' arithmetic:
   CPU's own FP32 result is less accurate than the kernel's there: errors of
   5 × 10⁻⁴ versus 2 × 10⁻⁵.
 - **Hardware emulation** is per kernel (RTL co-simulation of all kernels, Vitis
-  hardware emulation of the GEMV), not of the whole model (§4.3).
+  hardware emulation of the decode-only GEMV) and per layer (one layer in RTL
+  co-simulation, decode and prefill), not of the whole model (§4.3).
+- **Prefill** was first run through the decode kernels token by token; the
+  kernels now take T tokens per call, so the prompt runs in one pass. The
+  decode-only kernels are kept as the comparison point in the area chart
+  (`results/synthesis_baseline.csv`).
 - **Interface changes for the hardware build:** the LM head has one output buffer
   instead of two, and the standalone residual kernel is not in the hardware build
   (§3.4).
-- **Prefill on the FPGA** runs token by token through the decode kernels.

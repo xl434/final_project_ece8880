@@ -30,14 +30,20 @@ The runner builds what it needs, then prints PASS/FAIL per test. It writes
 | `L2_kernel_<name>` (6 tests) | 2 | `build/kernels/<name>/tb`; same as `make -C kernels/<name> swsim` |
 | `L3_block_fused` | 3 | `build/bin/block_test`; residual add fused into the GEMV |
 | `L3_block_unfused_residual` | 3 | `build/bin/block_test --unfused`; standalone residual kernel |
+| `L3_block_prefill_T100` | 3 | `build/bin/block_test --prefill_T=100`; 100 prompt tokens in one pass (real activations from the CPU model) |
 | `L4_e2e_8tok_cpu_fallback` | 4 | 8 tokens; attention and GELU on CPU, the rest on kernels |
 | `L4_e2e_8tok_unfused` | 4 | 8 tokens, all on kernels, standalone residual kernel |
+| `L4_e2e_8tok_token_by_token` | 4 | 8 tokens, prompt fed one token at a time (`--prefill=false`) |
 | `L4_e2e_32tok_all_kernels` | 4 | 32 tokens, every operator on kernels (skipped by `--quick`) |
+| `L4_e2e_992tok_prompt_8tok_gen` | 4 | 992-token prompt in one pass, then 8 tokens, vs Hugging Face (skipped by `--quick`) |
 
 Beyond these levels:
 - **RTL co-simulation** and **Vitis hardware emulation** of a synthesized kernel run
   the same L2 testbench against the generated hardware: `make -C kernels/<name>
   cosim` and `make -C kernels/<name> hw_emu`. They take minutes to hours, so they
   are not part of the runner. Logs: `results/emulation/`.
+- **One layer in RTL co-simulation:** `build/bin/block_test --layers=0
+  --xo_dir=build/kernels [--prefill_T=16]` runs every kernel call of the layer on
+  its synthesized `.xo` and checks it against the CPU (1–3 hours).
 - **Your own prompt** through Hugging Face, the CPU model and (optionally) the
   kernels: `python3 run_prompt.py "text" [--fpga]` in the top folder.

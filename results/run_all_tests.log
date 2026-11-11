@@ -1,3 +1,10 @@
 == build (log: results/test_logs/build.log) ==
 == L1: CPU reference vs Hugging Face ==
-L1_cpu_vs_hf                   
+L1_cpu_vs_hf                   PASS  (212s)  CPU vs golden: PASS
+== L2: each kernel vs CPU reference (software simulation) ==
+L2_kernel_gemv                 PASS  (174s)  gemv: 9 passed, 0 failed -> PASS
+L2_kernel_layernorm            PASS  (2s)  layernorm: 6 passed, 0 failed -> PASS
+L2_kernel_gelu                 PASS  (1s)  gelu: 4 passed, 0 failed -> PASS
+L2_kernel_residual             PASS  (0s)  residual: 3 passed, 0 failed -> PASS
+L2_kernel_attention            PASS  (34s)  attention: 16 passed, 0 failed -> PASS
+L2_kernel_lm_head              

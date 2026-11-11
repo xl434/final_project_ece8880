@@ -131,11 +131,18 @@ Example with the prompt "The FPGA is":
 3. **Decode step 2** reads " joint" and predicts " venture". This continues, one
    token per step.
 
-**This project accelerates decode.** It is the phase that repeats for every
-generated word, and it is limited by memory bandwidth, which is where the FPGA's
-fast HBM memory helps. The FPGA kernels therefore all work on one token at a time.
-The prompt is currently fed through them token by token too: correct, but not yet
-optimized. A faster matrix × matrix prefill is a later step.
+**Both phases run on the FPGA, with the same kernels.** Every kernel call
+processes T tokens:
+- **Prefill:** T = the prompt length. The whole prompt goes through each layer in
+  one call per operator, and each weight that is read is reused for many prompt
+  tokens (matrix × matrix).
+- **Decode:** T = 1. One call per operator per generated token; each weight is
+  used once (matrix × vector), so speed is set by memory bandwidth, which is
+  where the FPGA's fast HBM helps.
+
+(An earlier version ran the prompt through the decode path one token at a time.
+That was correct but read all weights once per prompt token; it is still
+available as `host_main --prefill=false` for testing.)
 
 ---
 
@@ -399,11 +406,11 @@ with HLS (High-Level Synthesis) using the TAPA framework, as in the labs.
 
 | kernel | does | input → output | kind of math | notes |
 |---|---|---|---|---|
-| `gemv` | the 4 weight multiplications per layer, `y = W x + b` | 768 or 3072 → 768, 2304 or 3072 | matrix × vector (each output is a sum) | the most important one: 8 memory ports, 128 multiply-adds per clock cycle |
+| `gemv` | the 4 weight multiplications per layer, `Y = X Wᵀ + b` | T × (768 or 3072) → T × (768, 2304 or 3072) | matrix × vector (decode) or matrix × matrix (prefill); each output is a sum | the most important one: 8 memory ports; 4 token lanes × 128 multiply-adds per clock cycle |
 | `layernorm` | LayerNorm | 768 → 768 | two sums (mean, variance), then elementwise | |
 | `gelu` | GELU | 3072 → 3072 | elementwise | |
 | `residual` | adds two vectors | 768 + 768 → 768 | elementwise | normally merged into `gemv` |
-| `attention` | attention, including writing the KV cache | 2304 + cache → 768 | sums over all past tokens, per head | 12 heads in parallel; reads the cache once |
+| `attention` | attention, including writing the KV cache | T × 2304 + cache → T × 768 | sums over all earlier tokens, per head (causal) | 12 heads in parallel; each pass over the cache serves 4 tokens |
 | `lm_head` | final multiply by wte + argmax | 768 → 1 token ID | matrix × vector, then max | outputs only the winning token ID and its score, not all 50,257 scores |
 
 **How a kernel is built.** All kernels follow the same recipe; the details,
@@ -417,7 +424,12 @@ diagrams and synthesis numbers are in `PROGRESS_REPORT.md` §3 and §5.1.
   new word every cycle (*II = 1*). Since GPT-2 decode is limited by memory, the
   goal is to keep the memory ports busy, not to add arithmetic.
 - **PEs.** The GEMV and LM head have 8 *processing elements* (PEs), one per HBM
-  port. Each PE takes one word of weights per cycle and does 16 multiply-adds.
+  port. A GEMV PE multiplies each word of weights with the matching values of
+  up to 4 tokens per cycle (64 multiply-adds). In decode there is one token, so
+  it takes a new weight word every cycle; in prefill a weight word stays for
+  several cycles while it is multiplied with all tokens of a chunk.
+- **Tokens per call.** GEMV and attention take T tokens per call; LayerNorm, GELU
+  and residual simply process T rows.
 
 **Every kernel folder has the same 4 files:**
 
@@ -491,25 +503,30 @@ token IDs back into text:
  for each token:
    start kernel 1, wait         ── start ──►    kernels read HBM, compute,
    start kernel 2, wait         ◄── done ───    write their result to HBM
-   ... (98 kernel calls per token)
+   ... (98 kernel calls per pass: the whole prompt is one pass,
+        then one pass per generated token)
  read the token ID, detokenize
 ```
 
-In this first design (the *baseline*) the kernels run one after another, and each
-kernel's result goes through HBM to the next one. Inside a kernel the work is
+In this design the kernels run one after another, and each kernel's result goes
+through HBM to the next one. Inside a kernel the work is
 streamed (dataflow); between kernels it is sequential (*temporal*). Why this is
 the starting point, and why the next design changes it: `PROGRESS_REPORT.md`
 §3.5 and §6.
 
 `src/host/fpga_model.cpp` does the same thing as `forward()` in Step 2, but calls
 the kernels instead of the CPU functions.
-- `FpgaModel::block()` (line 148) runs one layer.
-- `FpgaModel::step()` (line 183) handles one token.
+- `FpgaModel::block()` runs one layer for T tokens.
+- `FpgaModel::prefill()` runs the whole prompt (T tokens) through all layers.
+- `FpgaModel::step()` handles one generated token (T = 1).
 - `host_main.cpp` is the program around them.
 
 ```bash
 make -C src/host                                           # build -> build/bin/host_main
 build/bin/host_main --n=32 --check                         # all ops on kernels; compares tokens with Hugging Face
+build/bin/host_main --prompt=data/long_prompt_ids.i32 --expect=data/long_output_ids.i32 --n=8
+                                                           # 992-token prompt in one pass, then 8 tokens
+build/bin/host_main --n=8 --check --prefill=false          # prompt one token at a time (old path)
 build/bin/host_main --n=8 --check --cpu_ops=attention      # put some ops back on the CPU (for debugging)
 build/bin/host_main --plan                                 # print which HBM channel holds what
 ```
@@ -569,9 +586,12 @@ in `results/test_logs/`. `tests/README.md` lists where the code of every test is
 | `L2_kernel_gemv` … `L2_kernel_lm_head` (6 tests) | each kernel's `tb.cpp` |
 | `L3_block_fused` | layers 0 and 11 built from kernels |
 | `L3_block_unfused_residual` | same, with the residual done by its own kernel |
+| `L3_block_prefill_T100` | layers 0 and 11 built from kernels, 100 prompt tokens in one pass |
 | `L4_e2e_8tok_cpu_fallback` | 8 tokens; attention and GELU on CPU, the rest on kernels |
 | `L4_e2e_8tok_unfused` | 8 tokens, all on kernels, separate residual kernel |
+| `L4_e2e_8tok_token_by_token` | 8 tokens, prompt fed one token at a time (old path) |
 | `L4_e2e_32tok_all_kernels` | **32 tokens, everything on kernels** |
+| `L4_e2e_992tok_prompt_8tok_gen` | **992-token prompt in one pass, then 8 tokens** |
 
 All kernels in these tests run in software simulation. RTL co-simulation and
 hardware emulation (§5) run the L2 testbenches separately, because they take
@@ -632,5 +652,6 @@ It then checks that all of them produce exactly the same token IDs. Logs go to
 | **dataflow** | tasks run at the same time and stream data to each other |
 | **temporal** | operations run one after another on shared hardware; here: one kernel at a time |
 | **spatial** | each operation gets its own hardware and they all run at once, connected by streams; the planned next design |
-| **baseline** | the current design (dataflow inside kernels, temporal between them), the reference for later designs |
+| **baseline** | the current temporal design (dataflow inside kernels, one kernel at a time), the reference for the next, spatial design |
+| **GEMM** | matrix × matrix multiplication; the GEMV kernel does it in prefill by reusing each weight for many tokens |
 | **prefill / decode** | processing the whole prompt at once / producing one token at a time (§1) |

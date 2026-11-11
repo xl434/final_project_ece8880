@@ -13,6 +13,8 @@ Outputs of the scripts and runs. They are explained in `../PROGRESS_REPORT.md`.
 | `emulation/hw_emu_gemv.log` | `make -C kernels/gemv hw_emu` (Vitis hardware emulation in the U55C platform) |
 | `fpga_estimate.csv`, `fpga_estimate_ops.csv` | `analysis/fpga_estimate.py` (ESTIMATE of decode time from HLS cycles, per token / per operator) |
 | `cpu_peaks.csv` | `make -C src/cpu peaks` (measured CPU memory bandwidth and FP32 peak) |
+| `fpga_prefill_estimate.csv` | `analysis/fpga_estimate.py` (ESTIMATE of prefill time: CPU measured vs FPGA token by token vs one pass) |
+| `synthesis_baseline.csv` | synthesis of the first, decode-only kernels (kept for the area comparison) |
 | `figures/` | `analysis/figures.py` (charts used in `PROGRESS_REPORT.md`) |
 | `run_all_tests.log` | console output of the last full `tests/run_all_tests` |
 | `my_prompt/` | `run_prompt.py` (your prompt: token IDs, Hugging Face output IDs, CPU / FPGA-simulation logs) |

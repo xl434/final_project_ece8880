@@ -1,7 +1,9 @@
-// FPGA host model for GPT-2 decode: owns the (host copies of the) device
-// buffers, packs weights for the GEMV / LM-head kernels once, and runs one
-// token at a time through the HLS kernels with tapa::invoke. Any operator
-// class can be forced onto the CPU (src/cpu operators) for fallback/debug.
+// FPGA host model for GPT-2: owns the (host copies of the) device buffers,
+// packs weights for the GEMV / LM-head kernels once, and runs the model
+// through the HLS kernels with tapa::invoke: prefill runs all prompt tokens
+// in one pass (T rows per kernel call), decode one token at a time (T = 1).
+// Any operator class can be forced onto the CPU (src/cpu operators) for
+// fallback/debug.
 //
 // Bitstream "" = TAPA software simulation; ".xo" = TAPA fast cosim; ".xclbin"
 // = board (all kernels must be linked into that one xclbin, see
@@ -26,11 +28,14 @@ extern const char* const kOpClassNames[kNumOpClasses];
 
 struct HostOptions {
   std::string bitstream;                        // "" = software simulation
+  // If set, kernel <k> runs on xo_dir/<k>/<k>.xo (TAPA RTL co-simulation of
+  // each synthesized kernel; e.g. build/kernels). Overrides `bitstream`.
+  std::string xo_dir;
   std::array<bool, kNumOpClasses> on_cpu{};     // force CPU fallback per class
   bool fuse_residual = true;                    // residual add inside the GEMV
 };
 
-// Per-token activations of one block (for tests).
+// Activations of one block for T tokens, row-major (T, width) (for tests).
 struct BlockActs {
   std::vector<float> ln1, qkv, atty, res1, ln2, fch, fch_gelu, res2;
 };
@@ -39,12 +44,16 @@ class FpgaModel {
  public:
   FpgaModel(const Weights& w, const HostOptions& opt);
 
+  // Prefill: the T tokens at positions pos0 .. pos0+T-1 in one pass through
+  // every layer (fills the KV cache). Returns the argmax next token.
+  int prefill(const int* tokens, int T, int pos0);
   // One decode step: token at position pos (= tokens already cached).
   // Returns the argmax next token.
   int step(int token, int pos);
-  // One transformer block on x (C floats) at position pos; updates the KV
-  // cache of `layer` and returns the block output in acts->res2.
-  void block(int layer, const std::vector<float>& x, int pos, BlockActs* acts);
+  // One transformer block on x (T rows of C floats) at positions pos0 ..
+  // pos0+T-1; updates the KV cache of `layer` and returns the block output
+  // in acts->res2.
+  void block(int layer, const std::vector<float>& x, int pos0, BlockActs* acts, int T = 1);
 
   float* kcache_layer(int l) { return kcache_.data() + (size_t)l * kMaxT * kC; }
   float* vcache_layer(int l) { return vcache_.data() + (size_t)l * kMaxT * kC; }
@@ -56,13 +65,14 @@ class FpgaModel {
   static void print_hbm_plan();
 
  private:
-  void layernorm(const float* x, const float* g, const float* b, float* y);
+  void layernorm(const float* x, const float* g, const float* b, float* y, int T = 1);
   void gemv(const std::vector<aligned_vector<float>>& wp, const float* W, const float* b,
-            const float* x, const float* res, float* y, int C, int OC);
-  void attention(const float* qkv, int layer, int pos, float* y);
+            const float* x, const float* res, float* y, int C, int OC, int T = 1);
+  void attention(const float* qkv, int layer, int pos0, float* y, int T = 1);
   void gelu(const float* x, float* y, int n);
   void residual(const float* a, const float* b, float* y, int n);
   int lm_head(const float* x);
+  std::string bitstream_for(OpClass op) const;
 
   const Weights& w_;
   HostOptions opt_;

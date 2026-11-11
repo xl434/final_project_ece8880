@@ -1,0 +1,10 @@
+I1111 23:22:06.691 tapa.util:162] logging level set to INFO
+I1111 23:22:06.691 __main__:90] tapa version: 0.1.20250815
+I1111 23:22:06.711 tapa.cosim.__main__:169] TAPA fast cosim version: 0.1.20250815
+I1111 23:22:19.350 tapa.cosim.vivado:30] Vivado version: 2024.2
+I1111 23:22:19.352 tapa.cosim.__main__:257] Starting Vivado:
+I1111 23:22:19.352 tapa.cosim.__main__:258]    Command: vivado -mode batch -source run_cosim.tcl
+I1111 23:22:19.352 tapa.cosim.__main__:259]    Working directory: /tmp/tapa-fast-cosim.jXTk9Q/output/run
+I1111 23:22:19.352 tapa.cosim.__main__:260]    Stdout: /tmp/tapa-fast-cosim.jXTk9Q/output/cosim.stdout.log
+I1111 23:22:19.352 tapa.cosim.__main__:261]    Stderr: /tmp/tapa-fast-cosim.jXTk9Q/output/cosim.stderr.log
+I1111 23:29:54.702 tapa.cosim.__main__:299] Vivado simulation finished successfully

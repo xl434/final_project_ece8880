@@ -56,52 +56,59 @@ FpgaModel::FpgaModel(const Weights& w, const HostOptions& opt)
               t.ms(), kGemvPorts, kGemvRows, kLmPorts);
 }
 
-void FpgaModel::layernorm(const float* x, const float* g, const float* b, float* y) {
+std::string FpgaModel::bitstream_for(OpClass op) const {
+  if (opt_.xo_dir.empty()) return opt_.bitstream;
+  const std::string k = kOpClassNames[op];
+  return opt_.xo_dir + "/" + k + "/" + k + ".xo";
+}
+
+void FpgaModel::layernorm(const float* x, const float* g, const float* b, float* y, int T) {
   Clock c(&kernel_ms[kLayerNorm], &kernel_calls[kLayerNorm]);
-  if (opt_.on_cpu[kLayerNorm]) return layernorm_forward(y, x, g, b, 1, kC);
-  auto xa = copy_of(x, kC), ga = copy_of(g, kC), ba = copy_of(b, kC);
-  aligned_vector<float> ya(kC);
-  tapa::invoke(LayerNormKernel, opt_.bitstream,
+  if (opt_.on_cpu[kLayerNorm]) return layernorm_forward(y, x, g, b, T, kC);
+  auto xa = copy_of(x, (size_t)T * kC), ga = copy_of(g, kC), ba = copy_of(b, kC);
+  aligned_vector<float> ya((size_t)T * kC);
+  tapa::invoke(LayerNormKernel, bitstream_for(kLayerNorm),
                tapa::read_only_mmap<float>(xa).reinterpret<float_v16>(),
                tapa::read_only_mmap<float>(ga).reinterpret<float_v16>(),
                tapa::read_only_mmap<float>(ba).reinterpret<float_v16>(),
-               tapa::write_only_mmap<float>(ya).reinterpret<float_v16>(), 1, kC);
-  std::memcpy(y, ya.data(), kC * 4);
+               tapa::write_only_mmap<float>(ya).reinterpret<float_v16>(), T, kC);
+  std::memcpy(y, ya.data(), (size_t)T * kC * 4);
 }
 
 void FpgaModel::gemv(const std::vector<aligned_vector<float>>& wp, const float* W, const float* b,
-                     const float* x, const float* res, float* y, int C, int OC) {
+                     const float* x, const float* res, float* y, int C, int OC, int T) {
   Clock c(&kernel_ms[kGemv], &kernel_calls[kGemv]);
   if (opt_.on_cpu[kGemv]) {
-    matmul_forward(y, x, W, b, 1, C, OC);
-    if (res) residual_forward(y, y, res, OC);
+    matmul_forward(y, x, W, b, T, C, OC);
+    if (res) residual_forward(y, y, res, T * OC);
     return;
   }
-  auto xa = copy_of(x, C), ba = copy_of(b, OC);
-  auto ra = res ? copy_of(res, OC) : aligned_vector<float>(16, 0.0f);
-  aligned_vector<float> ya(OC);
+  auto xa = copy_of(x, (size_t)T * C), ba = copy_of(b, OC);
+  auto ra = res ? copy_of(res, (size_t)T * OC) : aligned_vector<float>(16, 0.0f);
+  aligned_vector<float> ya((size_t)T * OC);
   auto& wpm = const_cast<std::vector<aligned_vector<float>>&>(wp);
-  tapa::invoke(GemvKernel, opt_.bitstream, tapa::read_only_mmap<float>(xa).reinterpret<float_v16>(),
+  tapa::invoke(GemvKernel, bitstream_for(kGemv), tapa::read_only_mmap<float>(xa).reinterpret<float_v16>(),
                tapa::read_only_mmaps<float, kGemvPorts>(wpm).reinterpret<float_v16>(),
-               tapa::read_only_mmap<float>(ba), tapa::read_only_mmap<float>(ra),
-               tapa::write_only_mmap<float>(ya), C, OC, res ? 1 : 0);
-  std::memcpy(y, ya.data(), OC * 4);
+               tapa::read_only_mmap<float>(ba).reinterpret<float_v16>(),
+               tapa::read_only_mmap<float>(ra).reinterpret<float_v16>(),
+               tapa::write_only_mmap<float>(ya).reinterpret<float_v16>(), T, C, OC, res ? 1 : 0);
+  std::memcpy(y, ya.data(), (size_t)T * OC * 4);
 }
 
-void FpgaModel::attention(const float* qkv, int layer, int pos, float* y) {
+void FpgaModel::attention(const float* qkv, int layer, int pos0, float* y, int T) {
   Clock c(&kernel_ms[kAttention], &kernel_calls[kAttention]);
   if (opt_.on_cpu[kAttention]) {
-    kv_cache_write(kcache_layer(layer), vcache_layer(layer), qkv, 1, pos, kC);
-    return attention_forward(y, qkv, kcache_layer(layer), vcache_layer(layer), 1, pos, kC, kNH);
+    kv_cache_write(kcache_layer(layer), vcache_layer(layer), qkv, T, pos0, kC);
+    return attention_forward(y, qkv, kcache_layer(layer), vcache_layer(layer), T, pos0, kC, kNH);
   }
-  auto qa = copy_of(qkv, kC3);
-  aligned_vector<float> ya(kC);
-  tapa::invoke(AttentionKernel, opt_.bitstream,
+  auto qa = copy_of(qkv, (size_t)T * kC3);
+  aligned_vector<float> ya((size_t)T * kC);
+  tapa::invoke(AttentionKernel, bitstream_for(kAttention),
                tapa::read_only_mmap<float>(qa).reinterpret<float_v16>(),
                tapa::read_write_mmap<float>(kcache_).reinterpret<float_v16>(),
                tapa::read_write_mmap<float>(vcache_).reinterpret<float_v16>(),
-               tapa::write_only_mmap<float>(ya).reinterpret<float_v16>(), layer, pos);
-  std::memcpy(y, ya.data(), kC * 4);
+               tapa::write_only_mmap<float>(ya).reinterpret<float_v16>(), layer, pos0, T);
+  std::memcpy(y, ya.data(), (size_t)T * kC * 4);
 }
 
 void FpgaModel::gelu(const float* x, float* y, int n) {
@@ -109,7 +116,7 @@ void FpgaModel::gelu(const float* x, float* y, int n) {
   if (opt_.on_cpu[kGelu]) return gelu_forward(y, x, n);
   auto xa = copy_of(x, n);
   aligned_vector<float> ya(n);
-  tapa::invoke(GeluKernel, opt_.bitstream, tapa::read_only_mmap<float>(xa).reinterpret<float_v16>(),
+  tapa::invoke(GeluKernel, bitstream_for(kGelu), tapa::read_only_mmap<float>(xa).reinterpret<float_v16>(),
                tapa::write_only_mmap<float>(ya).reinterpret<float_v16>(), n / 16);
   std::memcpy(y, ya.data(), n * 4);
 }
@@ -119,7 +126,7 @@ void FpgaModel::residual(const float* a, const float* b, float* y, int n) {
   if (opt_.on_cpu[kResidual]) return residual_forward(y, a, b, n);
   auto aa = copy_of(a, n), ba = copy_of(b, n);
   aligned_vector<float> ya(n);
-  tapa::invoke(ResidualKernel, opt_.bitstream,
+  tapa::invoke(ResidualKernel, bitstream_for(kResidual),
                tapa::read_only_mmap<float>(aa).reinterpret<float_v16>(),
                tapa::read_only_mmap<float>(ba).reinterpret<float_v16>(),
                tapa::write_only_mmap<float>(ya).reinterpret<float_v16>(), n / 16);
@@ -137,46 +144,59 @@ int FpgaModel::lm_head(const float* x) {
   }
   auto xa = copy_of(x, kC);
   aligned_vector<float> out(16, -1.0f);  // {token ID, logit}
-  tapa::invoke(LmHeadKernel, opt_.bitstream, tapa::read_only_mmap<float>(xa).reinterpret<float_v16>(),
+  tapa::invoke(LmHeadKernel, bitstream_for(kLmHead), tapa::read_only_mmap<float>(xa).reinterpret<float_v16>(),
                tapa::read_only_mmaps<float, kLmPorts>(lmw_).reinterpret<float_v16>(),
                tapa::write_only_mmap<float>(out));
   last_logit_ = out[1];
   return (int)out[0];
 }
 
-void FpgaModel::block(int l, const std::vector<float>& x, int pos, BlockActs* a) {
-  a->ln1.resize(kC);
-  a->qkv.resize(kC3);
-  a->atty.resize(kC);
-  a->res1.resize(kC);
-  a->ln2.resize(kC);
-  a->fch.resize(kC4);
-  a->fch_gelu.resize(kC4);
-  a->res2.resize(kC);
-  layernorm(x.data(), w_.l_ln1w(l), w_.l_ln1b(l), a->ln1.data());
-  gemv(qkvw_[l], w_.l_qkvw(l), w_.l_qkvb(l), a->ln1.data(), nullptr, a->qkv.data(), kC, kC3);
-  attention(a->qkv.data(), l, pos, a->atty.data());
+void FpgaModel::block(int l, const std::vector<float>& x, int pos0, BlockActs* a, int T) {
+  a->ln1.resize((size_t)T * kC);
+  a->qkv.resize((size_t)T * kC3);
+  a->atty.resize((size_t)T * kC);
+  a->res1.resize((size_t)T * kC);
+  a->ln2.resize((size_t)T * kC);
+  a->fch.resize((size_t)T * kC4);
+  a->fch_gelu.resize((size_t)T * kC4);
+  a->res2.resize((size_t)T * kC);
+  layernorm(x.data(), w_.l_ln1w(l), w_.l_ln1b(l), a->ln1.data(), T);
+  gemv(qkvw_[l], w_.l_qkvw(l), w_.l_qkvb(l), a->ln1.data(), nullptr, a->qkv.data(), kC, kC3, T);
+  attention(a->qkv.data(), l, pos0, a->atty.data(), T);  // token t sees rows 0..pos0+t
   if (opt_.fuse_residual) {
     gemv(attprojw_[l], w_.l_attprojw(l), w_.l_attprojb(l), a->atty.data(), x.data(),
-         a->res1.data(), kC, kC);
+         a->res1.data(), kC, kC, T);
   } else {
-    std::vector<float> proj(kC);
+    std::vector<float> proj((size_t)T * kC);
     gemv(attprojw_[l], w_.l_attprojw(l), w_.l_attprojb(l), a->atty.data(), nullptr, proj.data(),
-         kC, kC);
-    residual(x.data(), proj.data(), a->res1.data(), kC);
+         kC, kC, T);
+    residual(x.data(), proj.data(), a->res1.data(), T * kC);
   }
-  layernorm(a->res1.data(), w_.l_ln2w(l), w_.l_ln2b(l), a->ln2.data());
-  gemv(fcw_[l], w_.l_fcw(l), w_.l_fcb(l), a->ln2.data(), nullptr, a->fch.data(), kC, kC4);
-  gelu(a->fch.data(), a->fch_gelu.data(), kC4);
+  layernorm(a->res1.data(), w_.l_ln2w(l), w_.l_ln2b(l), a->ln2.data(), T);
+  gemv(fcw_[l], w_.l_fcw(l), w_.l_fcb(l), a->ln2.data(), nullptr, a->fch.data(), kC, kC4, T);
+  gelu(a->fch.data(), a->fch_gelu.data(), T * kC4);
   if (opt_.fuse_residual) {
     gemv(fcprojw_[l], w_.l_fcprojw(l), w_.l_fcprojb(l), a->fch_gelu.data(), a->res1.data(),
-         a->res2.data(), kC4, kC);
+         a->res2.data(), kC4, kC, T);
   } else {
-    std::vector<float> proj(kC);
+    std::vector<float> proj((size_t)T * kC);
     gemv(fcprojw_[l], w_.l_fcprojw(l), w_.l_fcprojb(l), a->fch_gelu.data(), nullptr, proj.data(),
-         kC4, kC);
-    residual(a->res1.data(), proj.data(), a->res2.data(), kC);
+         kC4, kC, T);
+    residual(a->res1.data(), proj.data(), a->res2.data(), T * kC);
   }
+}
+
+int FpgaModel::prefill(const int* tokens, int T, int pos0) {
+  std::vector<float> x((size_t)T * kC);
+  encoder_forward(x.data(), tokens, T, pos0, w_.wte, w_.wpe, kC);  // host: table lookup
+  BlockActs a;
+  for (int l = 0; l < kL; ++l) {
+    block(l, x, pos0, &a, T);
+    x.swap(a.res2);
+  }
+  std::vector<float> lnf(kC);  // only the last token's logits are needed
+  layernorm(x.data() + (size_t)(T - 1) * kC, w_.lnfw, w_.lnfb, lnf.data());
+  return lm_head(lnf.data());
 }
 
 int FpgaModel::step(int token, int pos) {

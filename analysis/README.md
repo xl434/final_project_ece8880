@@ -7,7 +7,7 @@ work, measure the CPU, find the bottleneck, estimate the FPGA.
 |---|---|---|
 | `analyze.py` | from the model sizes alone: FLOPs and bytes per operator (decode and prefill), operational intensity, KV-cache size, bandwidth-limited tokens/s, on-chip fit; places the measured CPU numbers next to them | `results/analysis/` (`analysis.md`, CSVs, `cpu_breakdown.png`) |
 | `collect_synth.py` | gathers the HLS synthesis reports of all kernels (after `make hls`) | `results/synthesis.md`, `results/synthesis.csv` |
-| `fpga_estimate.py` | **estimate** of FPGA decode time, per token and per operator, from the synthesized cycle counts | `results/fpga_estimate.csv`, `results/fpga_estimate_ops.csv` |
+| `fpga_estimate.py` | **estimate** of FPGA decode time (per token, per operator) and prefill time (per prompt, token by token vs one pass), from a cycle model of each kernel call | `results/fpga_estimate.csv`, `results/fpga_estimate_ops.csv`, `results/fpga_prefill_estimate.csv` |
 | `figures.py` | draws the report charts from all of the above plus the CPU measurements | `results/figures/*.png` |
 
 ```bash

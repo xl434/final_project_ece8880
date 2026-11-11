@@ -1,0 +1,4 @@
+prompt_len,cpu_1thread_ms,cpu_8threads_ms,fpga_token_by_token_ms,fpga_one_pass_ms,one_pass_QKV_GEMV_ms,one_pass_attention_ms,one_pass_attn-proj_GEMV_ms,one_pass_FC_GEMV_ms,one_pass_FC-proj_GEMV_ms,one_pass_LM_head_and_argmax_ms,one_pass_LayerNorm_ms,one_pass_GELU_ms
+96,2262.8404,829.3727,307.1264,64.8065,13.4650,6.3440,4.6176,17.8886,18.4416,1.3444,1.9654,0.7399
+480,12064.4901,3550.7864,1766.5943,436.5820,67.2864,149.8700,23.0496,89.4048,92.1696,1.3444,9.7683,3.6890
+992,27382.2747,7771.8379,4300.7754,1226.3947,139.0483,635.3498,47.6256,184.7597,190.4736,1.3444,20.1721,7.6212

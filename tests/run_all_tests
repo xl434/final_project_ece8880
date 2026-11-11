@@ -3,12 +3,14 @@
 #
 #   L1  CPU reference (src/cpu)      vs Hugging Face golden data (data/)
 #   L2  each HLS kernel (kernels/*)  vs CPU reference      (kernel testbenches)
-#   L3  one transformer block from kernels vs CPU reference (tests/block_test)
-#   L4  whole model on kernels: generated token IDs vs Hugging Face
+#   L3  one transformer block from kernels vs CPU reference (tests/block_test):
+#       a decode step, and a 100-token prefill
+#   L4  whole model on kernels: generated token IDs vs Hugging Face; the prompt
+#       runs as one prefill pass (one test also runs it token by token)
 #   (L2-L4 run the kernels in TAPA software simulation)
 #
-#   tests/run_all_tests              all levels (~45 min; the 32-token L4 run is ~30 min)
-#   tests/run_all_tests --quick      skip the 32-token L4 run (~16 min)
+#   tests/run_all_tests              all levels (the long runs take ~30 min each)
+#   tests/run_all_tests --quick      skip the 32-token and the 992-token L4 runs
 #   tests/run_all_tests --level 2    only one level (1, 2, 3 or 4)
 # Logs: results/test_logs/<test>.log; summary: results/test_summary.md
 set -u
@@ -65,13 +67,17 @@ if want 3; then
   echo "== L3: one transformer block from kernels vs CPU reference =="
   run L3_block_fused "$BIN/block_test"
   run L3_block_unfused_residual "$BIN/block_test" --unfused
+  run L3_block_prefill_T100 "$BIN/block_test" --prefill_T=100
 fi
 if want 4; then
   echo "== L4: whole model on kernels, token IDs vs Hugging Face =="
   run L4_e2e_8tok_cpu_fallback "$BIN/host_main" --n=8 --check --cpu_ops=attention,gelu
   run L4_e2e_8tok_unfused "$BIN/host_main" --n=8 --check --fuse_residual=false
+  run L4_e2e_8tok_token_by_token "$BIN/host_main" --n=8 --check --prefill=false
   if [[ $QUICK -eq 0 ]]; then
     run L4_e2e_32tok_all_kernels "$BIN/host_main" --n=32 --check
+    run L4_e2e_992tok_prompt_8tok_gen "$BIN/host_main" --prompt=data/long_prompt_ids.i32 \
+      --expect=data/long_output_ids.i32 --n=8
   fi
 fi
 

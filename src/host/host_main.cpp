@@ -6,8 +6,9 @@
 //             [--fuse_residual=true] [--check] [--plan]
 //
 // Tokenization is done on the host (prompt token IDs from Python, decoding
-// with src/common/tokenizer). The prompt is prefilled token by token through
-// the decode kernels (KV cache), then n tokens are generated greedily.
+// with src/common/tokenizer). The prompt is prefilled in one pass (T rows per
+// kernel call; --prefill=false: token by token through the decode path),
+// then n tokens are generated greedily.
 // --check compares the generated IDs with data/output_ids.i32 (exact match).
 #include <gflags/gflags.h>
 
@@ -25,7 +26,10 @@ DEFINE_int32(n, 32, "tokens to generate");
 DEFINE_string(cpu_ops, "", "comma-separated operator classes to run on the CPU");
 DEFINE_bool(fuse_residual, true, "fuse residual adds into the GEMV output stage");
 DEFINE_bool(check, false, "compare generated IDs with data/output_ids.i32");
+DEFINE_string(expect, "", "int32 file of expected output IDs (e.g. data/long_output_ids.i32); "
+                          "compared like --check");
 DEFINE_bool(plan, false, "print the HBM placement plan and exit");
+DEFINE_bool(prefill, true, "run the prompt in one T-token pass (false: one decode step per token)");
 
 using namespace gpt2;
 
@@ -70,7 +74,12 @@ int main(int argc, char** argv) {
 
   Timer t;
   int pos = 0, next = -1;
-  for (int id : prompt) next = model.step(id, pos++);  // prefill through the KV cache
+  if (FLAGS_prefill) {
+    next = model.prefill(prompt.data(), (int)prompt.size(), 0);
+    pos = (int)prompt.size();
+  } else {
+    for (int id : prompt) next = model.step(id, pos++);  // token by token through the KV cache
+  }
   const double prefill_ms = t.ms();
   std::vector<int> out{next};
   t.reset();
@@ -91,12 +100,13 @@ int main(int argc, char** argv) {
     std::printf("  %-10s %5ld calls %10.1f ms\n", kOpClassNames[i], model.kernel_calls[i],
                 model.kernel_ms[i]);
 
-  if (FLAGS_check) {
-    const auto ref = golden::i32("output_ids.i32");
+  if (FLAGS_check || !FLAGS_expect.empty()) {
+    const auto ref = FLAGS_expect.empty() ? golden::i32("output_ids.i32")
+                                          : read_binary<int>(FLAGS_expect);
     int match = 0;
     const int n = std::min<int>(ref.size(), out.size());
     for (int i = 0; i < n; ++i) match += out[i] == ref[i];
-    const bool ok = match == n && FLAGS_prompt.empty();
+    const bool ok = match == n && (FLAGS_prompt.empty() || !FLAGS_expect.empty());
     std::printf("token IDs vs golden: %d/%d match -> %s\n", match, n, ok ? "PASS" : "FAIL");
     return ok ? 0 : 1;
   }

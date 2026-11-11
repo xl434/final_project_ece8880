@@ -3,13 +3,17 @@
 
 Inputs:  results/cpu_profile_ops.csv, results/cpu_profile_summary.csv,
          results/cpu_peaks.csv, results/fpga_estimate.csv,
-         results/fpga_estimate_ops.csv, and the FLOP/byte model in analyze.py
+         results/fpga_estimate_ops.csv, results/fpga_prefill_estimate.csv,
+         results/synthesis.csv, results/synthesis_baseline.csv (decode-only
+         kernels, for comparison), and the FLOP/byte model in analyze.py
 Outputs (results/figures/):
   work_per_op.png         data read and FLOPs per decoded token, by operator
   cpu_bandwidth_per_op.png  achieved CPU memory bandwidth per operator vs the measured ceiling
   roofline.png            decode and prefill on the CPU and U55C rooflines
   cpu_vs_fpga_per_op.png  decode time per token by operator: CPU measured vs FPGA estimate
   decode_throughput.png   tokens/s vs context: CPU measured vs FPGA estimate
+  prefill_time.png        prompt time: CPU measured vs FPGA token by token vs FPGA one pass
+  kernel_resources.png    DSPs and LUTs per kernel: decode-only vs decode + prefill kernels
 """
 import csv
 import os
@@ -229,12 +233,97 @@ def fig_throughput():
     save(fig, "decode_throughput.png")
 
 
+def fig_prefill():
+    pre = rows("fpga_prefill_estimate.csv")
+    lens = [int(r["prompt_len"]) for r in pre]
+    series = [
+        ([float(r["cpu_8threads_ms"]) / 1e3 for r in pre], "CPU, 8 threads (measured)", SLOTS[1]),
+        ([float(r["fpga_token_by_token_ms"]) / 1e3 for r in pre],
+         "FPGA, prompt one token at a time (estimate)", SLOTS[3]),
+        ([float(r["fpga_one_pass_ms"]) / 1e3 for r in pre],
+         "FPGA, prompt in one pass (estimate)", SLOTS[2]),
+    ]
+    fig, (ax, bx) = plt.subplots(1, 2, figsize=(11, 4.4), facecolor=SURF,
+                                 gridspec_kw=dict(width_ratios=[1.25, 1], wspace=0.55))
+    style(ax, grid_axis="y")
+    w = 0.8 / len(series)
+    for i, (vals, name, col) in enumerate(series):
+        xs = [g + (i - (len(series) - 1) / 2) * w for g in range(len(lens))]
+        ax.bar(xs, vals, width=w, color=col, edgecolor=SURF, linewidth=2, label=name, zorder=3)
+        for x, v in zip(xs, vals):
+            ax.text(x, v, f"{v:.2f}" if v < 1 else f"{v:.1f}", ha="center", va="bottom",
+                    fontsize=8, color=INK2)
+    ax.set_xticks(range(len(lens)))
+    ax.set_xticklabels([f"{n} tokens" for n in lens])
+    ax.set_ylabel("time to process the prompt (s)", color=INK, fontsize=9.5)
+    ax.set_ylim(0, max(series[0][0]) * 1.3)
+    title(ax, "Prefill: processing the prompt",
+          "FPGA: HLS cycle model, 300 MHz, HBM-limited, no launch cost; not measured.")
+    legend(ax, loc="upper left")
+    # where the one-pass time goes, longest prompt
+    last = pre[-1]
+    parts = {k[len("one_pass_"):-3].replace("_", " ").replace("and", "+"): float(v)
+             for k, v in last.items() if k.startswith("one_pass_") and k != "fpga_one_pass_ms"}
+    names = sorted(parts, key=parts.get, reverse=True)
+    style(bx)
+    bx.barh(range(len(names)), [parts[n] for n in names], color=SLOTS[2], edgecolor=SURF,
+            linewidth=2, zorder=3)
+    for y, n in enumerate(names):
+        bx.text(parts[n], y, f" {parts[n]:.0f} ms", va="center", fontsize=8, color=INK2)
+    bx.set_yticks(range(len(names)))
+    bx.set_yticklabels(names)
+    bx.invert_yaxis()
+    bx.set_xlim(0, max(parts.values()) * 1.3)
+    bx.set_xlabel("ms (estimate)", color=INK, fontsize=9.5)
+    title(bx, f"One pass, {last['prompt_len']} tokens: where the time goes",
+          "Attention is the largest part: the next target.")
+    save(fig, "prefill_time.png")
+
+
+def fig_resources():
+    def kernels(name):
+        return {r["kernel"]: r for r in rows(name) if r["level"] == "kernel"}
+    old, new = kernels("synthesis_baseline.csv"), kernels("synthesis.csv")
+    ks = ["attention", "gemv", "lm_head", "gelu", "layernorm"]  # residual: not in the hardware build
+    chip = {"DSP": 9024, "LUT": 1303680}
+    designs = [("decode-only kernels", old), ("decode + prefill kernels", new)]
+    fig, axes = plt.subplots(1, 2, figsize=(11, 3.2), facecolor=SURF,
+                             gridspec_kw=dict(wspace=0.35))
+    for ax, res in zip(axes, ("DSP", "LUT")):
+        style(ax)
+        for y, (label, d) in enumerate(designs):
+            left = 0.0
+            for i, k in enumerate(ks):
+                v = float(d[k][res]) / chip[res] * 100
+                ax.barh(y, v, left=left, height=0.55, color=SLOTS[i], edgecolor=SURF,
+                        linewidth=2, zorder=3, label=k if y == 0 else None)
+                if v > 4:
+                    ax.text(left + v / 2, y, f"{v:.0f}", ha="center", va="center", fontsize=8,
+                            color="white")
+                left += v
+            ax.text(left + 1, y, f"{left:.0f}%", va="center", fontsize=9, color=INK, zorder=5,
+                    bbox=dict(facecolor=SURF, edgecolor="none", pad=1))
+        ax.axvline(80 if res == "DSP" else 60, color=INK2, linestyle="--", linewidth=1, zorder=4)
+        ax.set_yticks(range(len(designs)))
+        ax.set_yticklabels([d[0] for d in designs])
+        ax.invert_yaxis()
+        ax.set_xlim(0, 100)
+        ax.set_xlabel(f"% of the chip's {res}s (HLS estimate; shell not included)", color=INK,
+                      fontsize=9)
+        title(ax, f"{res}s per kernel",
+              f"dashed: {80 if res == 'DSP' else 60}% guideline for routability (ECE 8880 Lab 4)")
+    legend(axes[0], loc="lower center", bbox_to_anchor=(1.1, -0.48), ncol=5)
+    save(fig, "kernel_resources.png")
+
+
 def main():
     fig_work_per_op()
     fig_cpu_bandwidth()
     fig_roofline()
     fig_cpu_vs_fpga()
     fig_throughput()
+    fig_prefill()
+    fig_resources()
 
 
 if __name__ == "__main__":

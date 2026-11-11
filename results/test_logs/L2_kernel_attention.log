@@ -1,26 +1,38 @@
-WARNING: Logging before InitGoogleLogging() is written to STDERR
-I20261110 23:12:51.870553 2023024 task.h:122] running software simulation with TAPA library
-I20261110 23:12:52.040318 2023024 task.h:122] running software simulation with TAPA library
-I20261110 23:12:52.235121 2023024 task.h:122] running software simulation with TAPA library
-I20261110 23:12:52.420995 2023024 task.h:122] running software simulation with TAPA library
-I20261110 23:12:52.565447 2023024 task.h:122] running software simulation with TAPA library
 AttentionKernel: 12 heads in parallel, mode: software simulation
-l00_attn: layer 0 pos 5 (62072 us)
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+I20261111 23:33:59.063542 147461 task.h:122] running software simulation with TAPA library
+l00_attn: layer 0 pos 5 T 1 (78135 us)
   l00_attn               n=768     max_abs=1.192e-07 max_rel=2.536e-06 norm_rel=1.137e-07 |ref|max=1.286e+00  PASS
   l00_attn cache         PASS
   [vs HF] l00_attn       max_abs=1.192e-07 max_rel=2.536e-06 norm_rel=1.148e-07
-l06_attn: layer 6 pos 5 (101171 us)
+I20261111 23:33:59.402711 147461 task.h:122] running software simulation with TAPA library
+l06_attn: layer 6 pos 5 T 1 (67153 us)
   l06_attn               n=768     max_abs=3.874e-07 max_rel=8.374e-06 norm_rel=2.910e-07 |ref|max=1.366e+00  PASS
   l06_attn cache         PASS
   [vs HF] l06_attn       max_abs=3.874e-07 max_rel=8.374e-06 norm_rel=2.899e-07
-l11_attn: layer 11 pos 5 (83943 us)
+I20261111 23:33:59.931408 147461 task.h:122] running software simulation with TAPA library
+l11_attn: layer 11 pos 5 T 1 (120253 us)
   l11_attn               n=768     max_abs=3.576e-07 max_rel=2.756e-06 norm_rel=1.541e-07 |ref|max=2.545e+00  PASS
   l11_attn cache         PASS
   [vs HF] l11_attn       max_abs=3.576e-07 max_rel=2.756e-06 norm_rel=1.534e-07
-pos0: layer 2 pos 0 (42963 us)
+I20261111 23:34:00.329006 147461 task.h:122] running software simulation with TAPA library
+pos0: layer 2 pos 0 T 1 (53851 us)
   pos0                   n=768     max_abs=0.000e+00 max_rel=0.000e+00 norm_rel=0.000e+00 |ref|max=1.999e+00  PASS
   pos0 cache             PASS
-rand_pos1023: layer 7 pos 1023 (3790841 us)
+I20261111 23:34:00.864614 147461 task.h:122] running software simulation with TAPA library
+rand_pos1023: layer 7 pos 1023 T 1 (6044881 us)
   rand_pos1023           n=768     max_abs=6.914e-06 max_rel=9.228e-06 norm_rel=4.385e-07 |ref|max=7.997e+00  PASS
   rand_pos1023 cache     PASS
-attention: 10 passed, 0 failed -> PASS
+I20261111 23:34:07.293460 147461 task.h:122] running software simulation with TAPA library
+pre_T5_pos3: layer 4 pos 3 T 5 (156053 us)
+  pre_T5_pos3            n=3840    max_abs=1.311e-06 max_rel=1.290e-05 norm_rel=1.520e-07 |ref|max=2.964e+00  PASS
+  pre_T5_pos3 cache      PASS
+I20261111 23:34:07.764226 147461 task.h:122] running software simulation with TAPA library
+pre_T100_pos0: layer 9 pos 0 T 100 (8161461 us)
+  pre_T100_pos0          n=76800   max_abs=4.888e-06 max_rel=7.260e-05 norm_rel=4.417e-07 |ref|max=2.999e+00  PASS
+  pre_T100_pos0 cache    PASS
+I20261111 23:34:16.327093 147461 task.h:122] running software simulation with TAPA library
+pre_T50_pos200: layer 10 pos 200 T 50 (15551202 us)
+  pre_T50_pos200         n=38400   max_abs=3.040e-06 max_rel=4.549e-05 norm_rel=4.818e-07 |ref|max=2.897e+00  PASS
+  pre_T50_pos200 cache   PASS
+attention: 16 passed, 0 failed -> PASS

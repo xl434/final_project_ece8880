@@ -1,11 +1,11 @@
-WARNING: Logging before InitGoogleLogging() is written to STDERR
-I20261110 23:12:51.671801 2022826 task.h:122] running software simulation with TAPA library
-I20261110 23:12:51.688472 2022826 task.h:122] running software simulation with TAPA library
-I20261110 23:12:51.705744 2022826 task.h:122] running software simulation with TAPA library
 ResidualKernel, mode: software simulation
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+I20261111 23:33:58.223668 147413 task.h:122] running software simulation with TAPA library
   l03_res1               n=768     max_abs=0.000e+00 max_rel=0.000e+00 norm_rel=0.000e+00 |ref|max=2.512e+01  PASS
   [vs HF] l03_res1       max_abs=0.000e+00 max_rel=0.000e+00 norm_rel=0.000e+00
+I20261111 23:33:58.345026 147413 task.h:122] running software simulation with TAPA library
   l11_res2               n=768     max_abs=0.000e+00 max_rel=0.000e+00 norm_rel=0.000e+00 |ref|max=2.011e+02  PASS
   [vs HF] l11_res2       max_abs=0.000e+00 max_rel=0.000e+00 norm_rel=0.000e+00
+I20261111 23:33:58.473706 147413 task.h:122] running software simulation with TAPA library
   rand_4x768             n=3072    max_abs=0.000e+00 max_rel=0.000e+00 norm_rel=0.000e+00 |ref|max=9.990e+02  PASS
 residual: 3 passed, 0 failed -> PASS
