@@ -1,0 +1,50 @@
+make: Entering directory '/home/coder/final_project_ece8880/kernels/residual'
+env -u XILINX_XRT /home/coder/final_project_ece8880/build/kernels/residual/tb --bitstream=/home/coder/final_project_ece8880/build/kernels/residual/residual.xo 
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+I20261111 15:55:22.631170 2578663 frt.cpp:22] Loading /home/coder/final_project_ece8880/build/kernels/residual/residual.xo
+I20261111 15:55:22.633006 2578663 tapa_fast_cosim_device.cpp:122] Running hardware simulation with TAPA fast cosim
+I1111 15:55:24.708 tapa.util:162] logging level set to INFO
+I1111 15:55:24.708 __main__:90] tapa version: 0.1.20250815
+I1111 15:55:24.709 tapa.cosim.__main__:169] TAPA fast cosim version: 0.1.20250815
+I1111 15:55:28.993 tapa.cosim.vivado:30] Vivado version: 2024.2
+I1111 15:55:28.995 tapa.cosim.__main__:257] Starting Vivado:
+I1111 15:55:28.995 tapa.cosim.__main__:258]    Command: vivado -mode batch -source run_cosim.tcl
+I1111 15:55:28.995 tapa.cosim.__main__:259]    Working directory: /tmp/tapa-fast-cosim.NpEKWr/output/run
+I1111 15:55:28.995 tapa.cosim.__main__:260]    Stdout: /tmp/tapa-fast-cosim.NpEKWr/output/cosim.stdout.log
+I1111 15:55:28.995 tapa.cosim.__main__:261]    Stderr: /tmp/tapa-fast-cosim.NpEKWr/output/cosim.stderr.log
+I1111 15:57:56.411 tapa.cosim.__main__:299] Vivado simulation finished successfully
+I20261111 15:57:56.477883 2578663 tapa_fast_cosim_device.cpp:380] TAPA fast cosim finished successfully
+I20261111 15:57:56.508922 2578663 frt.cpp:22] Loading /home/coder/final_project_ece8880/build/kernels/residual/residual.xo
+I20261111 15:57:56.511804 2578663 tapa_fast_cosim_device.cpp:122] Running hardware simulation with TAPA fast cosim
+I1111 15:57:56.887 tapa.util:162] logging level set to INFO
+I1111 15:57:56.887 __main__:90] tapa version: 0.1.20250815
+I1111 15:57:56.888 tapa.cosim.__main__:169] TAPA fast cosim version: 0.1.20250815
+I1111 15:57:58.017 tapa.cosim.vivado:30] Vivado version: 2024.2
+I1111 15:57:58.018 tapa.cosim.__main__:257] Starting Vivado:
+I1111 15:57:58.018 tapa.cosim.__main__:258]    Command: vivado -mode batch -source run_cosim.tcl
+I1111 15:57:58.018 tapa.cosim.__main__:259]    Working directory: /tmp/tapa-fast-cosim.1VTS2g/output/run
+I1111 15:57:58.018 tapa.cosim.__main__:260]    Stdout: /tmp/tapa-fast-cosim.1VTS2g/output/cosim.stdout.log
+I1111 15:57:58.018 tapa.cosim.__main__:261]    Stderr: /tmp/tapa-fast-cosim.1VTS2g/output/cosim.stderr.log
+I1111 15:58:35.752 tapa.cosim.__main__:299] Vivado simulation finished successfully
+I20261111 15:58:35.819639 2578663 tapa_fast_cosim_device.cpp:380] TAPA fast cosim finished successfully
+I20261111 15:58:35.872812 2578663 frt.cpp:22] Loading /home/coder/final_project_ece8880/build/kernels/residual/residual.xo
+I20261111 15:58:35.874447 2578663 tapa_fast_cosim_device.cpp:122] Running hardware simulation with TAPA fast cosim
+I1111 15:58:36.246 tapa.util:162] logging level set to INFO
+I1111 15:58:36.246 __main__:90] tapa version: 0.1.20250815
+I1111 15:58:36.246 tapa.cosim.__main__:169] TAPA fast cosim version: 0.1.20250815
+I1111 15:58:37.376 tapa.cosim.vivado:30] Vivado version: 2024.2
+I1111 15:58:37.377 tapa.cosim.__main__:257] Starting Vivado:
+I1111 15:58:37.377 tapa.cosim.__main__:258]    Command: vivado -mode batch -source run_cosim.tcl
+I1111 15:58:37.377 tapa.cosim.__main__:259]    Working directory: /tmp/tapa-fast-cosim.INJ026/output/run
+I1111 15:58:37.377 tapa.cosim.__main__:260]    Stdout: /tmp/tapa-fast-cosim.INJ026/output/cosim.stdout.log
+I1111 15:58:37.377 tapa.cosim.__main__:261]    Stderr: /tmp/tapa-fast-cosim.INJ026/output/cosim.stderr.log
+I1111 15:59:15.947 tapa.cosim.__main__:299] Vivado simulation finished successfully
+I20261111 15:59:16.017969 2578663 tapa_fast_cosim_device.cpp:380] TAPA fast cosim finished successfully
+ResidualKernel, mode: TAPA fast cosim (RTL)
+  l03_res1               n=768     max_abs=0.000e+00 max_rel=0.000e+00 norm_rel=0.000e+00 |ref|max=2.512e+01  PASS
+  [vs HF] l03_res1       max_abs=0.000e+00 max_rel=0.000e+00 norm_rel=0.000e+00
+  l11_res2               n=768     max_abs=0.000e+00 max_rel=0.000e+00 norm_rel=0.000e+00 |ref|max=2.011e+02  PASS
+  [vs HF] l11_res2       max_abs=0.000e+00 max_rel=0.000e+00 norm_rel=0.000e+00
+  rand_4x768             n=3072    max_abs=0.000e+00 max_rel=0.000e+00 norm_rel=0.000e+00 |ref|max=9.990e+02  PASS
+residual: 3 passed, 0 failed -> PASS
+make: Leaving directory '/home/coder/final_project_ece8880/kernels/residual'

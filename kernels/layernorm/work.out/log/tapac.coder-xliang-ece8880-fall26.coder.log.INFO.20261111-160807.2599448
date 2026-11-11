@@ -7,3 +7,4 @@ I1111 16:08:09.075 tapa.cosim.__main__:258]    Command: vivado -mode batch -sour
 I1111 16:08:09.075 tapa.cosim.__main__:259]    Working directory: /tmp/tapa-fast-cosim.BRdFjs/output/run
 I1111 16:08:09.075 tapa.cosim.__main__:260]    Stdout: /tmp/tapa-fast-cosim.BRdFjs/output/cosim.stdout.log
 I1111 16:08:09.075 tapa.cosim.__main__:261]    Stderr: /tmp/tapa-fast-cosim.BRdFjs/output/cosim.stderr.log
+I1111 16:09:05.142 tapa.cosim.__main__:299] Vivado simulation finished successfully

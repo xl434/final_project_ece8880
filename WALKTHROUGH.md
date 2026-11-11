@@ -1,10 +1,13 @@
 # Walkthrough: what we did, in plain language
 
 This file explains the project step by step: what each piece is, why it exists,
-where its code is, how to run it, and what its tests check.
+where its code is, how to run it, and what its tests check. It explains ideas
+and code; it does not report results.
 
 - How to run everything, including your own prompt: [`README.md`](README.md).
-- The formal course report, with all numbers: [`PROGRESS_REPORT.md`](PROGRESS_REPORT.md).
+- Results, analysis and the reasons for the next steps: [`PROGRESS_REPORT.md`](PROGRESS_REPORT.md).
+- What is done and what is next: [`PLAN.md`](PLAN.md).
+- Terms such as *kernel*, *PE*, *II* or *co-simulation*: [glossary](#glossary) at the end.
 - Each folder also has a short `README.md` with that folder's exact commands.
 
 ---
@@ -339,15 +342,14 @@ values, and compares each one with `data/acts/`.
 - Two FP32 programs never agree exactly, because the order of additions differs.
 - We therefore allow a small error: at most 1e-4 × (largest value) + 1e-4 × (value).
   That is about 0.01%.
-- Result: all **147** tensors pass. The largest error relative to the tensor's
-  size is 1.05e-5.
-- **32/32** generated tokens are identical for the short prompt, and **32/32** for
-  the long one.
-- Output: `results/cpu_verify.csv`, `results/cpu_verify.log`.
+- It also checks that the generated tokens are identical, for the short prompt
+  and for the 992-token prompt.
+- Output: `results/cpu_verify.csv`, `results/cpu_verify.log`. Results:
+  `PROGRESS_REPORT.md` §4.4.
 
-**Speed** (`results/cpu_profile_summary.csv`): 26–37 tokens/s on 1 thread and
-39–53 tokens/s on 8 threads, depending on context length. The machine has 4
-physical cores with 2 hyper-threads each, so "8 threads" means 4 cores.
+**Speed:** `profile` times decode at several context lengths, with 1 and 8
+threads. The machine has 4 physical cores with 2 hyper-threads each, so
+"8 threads" means 4 cores. Results: `PROGRESS_REPORT.md` §2.
 
 ---
 
@@ -402,9 +404,20 @@ with HLS (High-Level Synthesis) using the TAPA framework, as in the labs.
 | `gelu` | GELU | 3072 → 3072 | elementwise | |
 | `residual` | adds two vectors | 768 + 768 → 768 | elementwise | normally merged into `gemv` |
 | `attention` | attention, including writing the KV cache | 2304 + cache → 768 | sums over all past tokens, per head | 12 heads in parallel; reads the cache once |
-| `lm_head` | final multiply by wte + argmax | 768 → 1 token ID | matrix × vector, then max | outputs only the winning token ID |
+| `lm_head` | final multiply by wte + argmax | 768 → 1 token ID | matrix × vector, then max | outputs only the winning token ID and its score, not all 50,257 scores |
 
-How each kernel is built, with the math and diagrams: `PROGRESS_REPORT.md` §3.
+**How a kernel is built.** All kernels follow the same recipe; the details,
+diagrams and synthesis numbers are in `PROGRESS_REPORT.md` §3 and §5.1.
+- **Wide words.** Data moves in 512-bit words, 16 floats at a time, the width of
+  one HBM port. Each kernel handles all 16 in parallel ("16 lanes").
+- **Tasks connected by streams.** A kernel is split into small *tasks*, typically
+  read → compute → write, connected by FIFOs. The tasks run at the same time, like
+  an assembly line (TAPA *dataflow*).
+- **One word per clock cycle.** Every streaming loop is *pipelined* so it takes a
+  new word every cycle (*II = 1*). Since GPT-2 decode is limited by memory, the
+  goal is to keep the memory ports busy, not to add arithmetic.
+- **PEs.** The GEMV and LM head have 8 *processing elements* (PEs), one per HBM
+  port. Each PE takes one word of weights per cycle and does 16 multiply-adds.
 
 **Every kernel folder has the same 4 files:**
 
@@ -425,8 +438,22 @@ cd kernels/gemv
 make swsim    # software simulation: run the testbench, seconds. Checks correctness. (= test level L2)
 make hls      # synthesis: turn C++ into hardware, minutes to about an hour. Gives size + speed estimates.
               #   output: build/kernels/gemv/gemv.xo, reports in build/kernels/gemv/work.out/report/
-make cosim    # simulate the generated hardware (RTL), hours for gemv. Checks the real circuit.
+make cosim    # RTL co-simulation: simulate the generated circuit. Minutes to hours.
+make hw_emu   # Vitis hardware emulation: the circuit inside the U55C platform. Hours.
 ```
+
+**Four ways to run the same testbench**, each closer to real hardware and slower:
+
+| mode | what runs | what it proves |
+|---|---|---|
+| software simulation (`swsim`) | the kernel's C++ on the CPU | the algorithm is right |
+| RTL co-simulation (`cosim`, the labs' "hardware emulation") | the circuit produced by synthesis, cycle by cycle | the generated hardware is right |
+| Vitis hardware emulation (`hw_emu`) | the circuit linked into the U55C platform, with its memory placement and an HBM model | it also works inside the real platform |
+| board (`--bitstream=<file>.xclbin`) | the real FPGA | real speed |
+
+Software simulation can miss hardware problems. For example, co-simulation found
+that HLS renames ports called `pos` or `port`, which broke the generated circuit
+even though the C++ was correct (`PROGRESS_REPORT.md` §4.4).
 
 **What a kernel test checks** (each line of output is one case):
 - It feeds the kernel **real GPT-2 data** from `data/` (for example the actual
@@ -452,6 +479,28 @@ Synthesis results for all kernels (size, clock speed, cycles) are collected by
 
 ## 6. Step 5: the whole model using the kernels (`src/host`)
 
+**What "host" means.** The FPGA card sits in a normal computer (the *host*) and
+cannot run on its own. A CPU program, the *host program*, loads the weights into
+the card's HBM memory, starts each kernel in the right order, and turns the final
+token IDs back into text:
+
+```
+ CPU (host)                                     FPGA card
+ load weights, copy to HBM      ── PCIe ──►     HBM: weights, KV cache, vectors
+ tokenize the prompt
+ for each token:
+   start kernel 1, wait         ── start ──►    kernels read HBM, compute,
+   start kernel 2, wait         ◄── done ───    write their result to HBM
+   ... (98 kernel calls per token)
+ read the token ID, detokenize
+```
+
+In this first design (the *baseline*) the kernels run one after another, and each
+kernel's result goes through HBM to the next one. Inside a kernel the work is
+streamed (dataflow); between kernels it is sequential (*temporal*). Why this is
+the starting point, and why the next design changes it: `PROGRESS_REPORT.md`
+§3.5 and §6.
+
 `src/host/fpga_model.cpp` does the same thing as `forward()` in Step 2, but calls
 the kernels instead of the CPU functions.
 - `FpgaModel::block()` (line 148) runs one layer.
@@ -465,14 +514,35 @@ build/bin/host_main --n=8 --check --cpu_ops=attention      # put some ops back o
 build/bin/host_main --plan                                 # print which HBM channel holds what
 ```
 
-There is no FPGA board here. The kernels therefore run in **software simulation**,
-which takes about 30 minutes for 32 tokens. This shows only that the result is
-correct; it says nothing about speed. On a real board the same program would run
-with `--bitstream=<file>.xclbin`.
+Without a bitstream, the kernels run in **software simulation**, which takes
+about 30 minutes for 32 tokens. This shows only that the result is correct; it
+says nothing about speed. The current host uses `tapa::invoke`, which is fine for
+simulation but copies buffers on every call and handles one kernel per FPGA
+image. A board run of the whole model needs a host written with XRT, AMD's
+runtime library (listed in `PLAN.md`).
 
 ---
 
-## 7. All tests in one command (`tests/run_all_tests`)
+## 7. Step 6: building a real FPGA image (`make -C src/host xclbin_hw`)
+
+Synthesis (`make hls`) turns each kernel into a circuit description (`.xo`) and
+*estimates* its size and speed. To get something that runs on the card, all
+kernels are combined into one *FPGA image* (`.xclbin`):
+1. **Link** (`v++ --link`): the kernels are placed into the U55C *platform* (the
+   fixed "shell" that talks to PCIe and HBM), and each kernel memory port is
+   connected to an HBM channel as listed in `src/host/link_config.ini`.
+2. **Implementation** (Vivado): synthesis to gates, placement on the chip,
+   routing of the wires, and timing checks. This gives the real area and clock.
+   It takes many hours.
+
+No board is needed for this step. Two limits showed up here and are explained in
+`PROGRESS_REPORT.md` §3.4 and §5.4: the U55C allows only 32 kernel memory ports,
+and Vivado needs a small workaround on this workspace (`src/host/vivado/`, taken
+from the ECE 8880 Lab 4 flow).
+
+---
+
+## 8. All tests in one command (`tests/run_all_tests`)
 
 All verification is run from `tests/`. It is organized as four **levels**, and
 each level is checked against the one before it. If something breaks, the
@@ -492,24 +562,24 @@ tests/run_all_tests --level 2    # only one level
 ```
 It writes `results/test_summary.md` (one line per test) and a log for each test
 in `results/test_logs/`. `tests/README.md` lists where the code of every test is.
-Last full run: 2026-11-07, 12 passed, 0 failed, 46 min.
 
-| test name | what it runs | last result |
-|---|---|---|
-| `L1_cpu_vs_hf` | CPU model, 147 tensors + generated tokens vs Hugging Face | PASS |
-| `L2_kernel_gemv` … `L2_kernel_lm_head` (6 tests) | each kernel's `tb.cpp` | all PASS (35 cases) |
-| `L3_block_fused` | layers 0 and 11 built from kernels | PASS 20/20 |
-| `L3_block_unfused_residual` | same, with the residual done by its own kernel | PASS 20/20 |
-| `L4_e2e_8tok_cpu_fallback` | 8 tokens; attention and GELU on CPU, the rest on kernels | PASS 8/8 tokens |
-| `L4_e2e_8tok_unfused` | 8 tokens, all on kernels, separate residual kernel | PASS 8/8 tokens |
-| `L4_e2e_32tok_all_kernels` | **32 tokens, everything on kernels** | **PASS 32/32 tokens** |
+| test name | what it runs |
+|---|---|
+| `L1_cpu_vs_hf` | CPU model, 147 tensors + generated tokens vs Hugging Face |
+| `L2_kernel_gemv` … `L2_kernel_lm_head` (6 tests) | each kernel's `tb.cpp` |
+| `L3_block_fused` | layers 0 and 11 built from kernels |
+| `L3_block_unfused_residual` | same, with the residual done by its own kernel |
+| `L4_e2e_8tok_cpu_fallback` | 8 tokens; attention and GELU on CPU, the rest on kernels |
+| `L4_e2e_8tok_unfused` | 8 tokens, all on kernels, separate residual kernel |
+| `L4_e2e_32tok_all_kernels` | **32 tokens, everything on kernels** |
 
-Separately, the GEMV hardware circuit was simulated at RTL level (`make cosim`),
-which took 2 h 14 min: 6/6 PASS (`results/cosim_gemv.log`).
+All kernels in these tests run in software simulation. RTL co-simulation and
+hardware emulation (§5) run the L2 testbenches separately, because they take
+much longer. Results of everything: `PROGRESS_REPORT.md` §4.4.
 
 ---
 
-## 8. Trying your own prompt (`run_prompt.py`)
+## 9. Trying your own prompt (`run_prompt.py`)
 
 The tests above use the fixed prompt "The FPGA is". To check any other text:
 ```bash
@@ -527,7 +597,7 @@ It then checks that all of them produce exactly the same token IDs. Logs go to
 
 ---
 
-## 9. Where the numbers are
+## 10. Where the numbers are
 
 | question | file |
 |---|---|
@@ -538,34 +608,29 @@ It then checks that all of them produce exactly the same token IDs. Logs go to
 | CPU memory and compute limits | `results/cpu_peaks.csv` |
 | Theoretical limits, detailed tables | `results/analysis/analysis.md` |
 | Hardware size and cycle counts | `results/synthesis.md` |
+| RTL co-simulation and hardware emulation logs | `results/emulation/` |
 | Estimated FPGA speed (an **estimate**, not measured) | `results/fpga_estimate.csv`, per operator: `results/fpga_estimate_ops.csv` (from `analysis/fpga_estimate.py`) |
 | The full report | `PROGRESS_REPORT.md` |
 
 ---
 
-## 10. Status
+## Glossary
 
-**Done and checked**
-- Hugging Face reference.
-- CPU version, matching Hugging Face.
-- Speed analysis.
-- All 6 kernels written, tested in simulation and synthesized.
-- The whole model running on the kernels in simulation produces exactly the same
-  32 tokens as Hugging Face.
-- GEMV checked at the RTL level.
-
-**Not done yet**
-- Building one complete FPGA image (`v++` link).
-- Running on a real board; none is available here.
-- Hardware emulation.
-- Faster prompt processing.
-- Lower precision (FP16/INT8, a later stage).
-
-**Estimated FPGA speed** (from synthesis reports, **not measured**): about
-125–212 tokens/s, versus 39–53 tokens/s measured on the 8-thread CPU, i.e.
-roughly 3–4× faster.
-- The gain comes from reading memory faster, as the analysis predicted.
-- It is limited because the design uses only 8 of the 32 memory channels and
-  runs one kernel at a time; using more channels is the main next step.
-
-Details, risks and next steps: `PROGRESS_REPORT.md` §5–6.
+| term | meaning in this project |
+|---|---|
+| **kernel** | one hardware block on the FPGA that does one operation (e.g. GEMV, attention) |
+| **task** | a part of a kernel (e.g. "read weights", "compute"); tasks run at the same time and pass data through FIFO streams (TAPA) |
+| **PE** (processing element) | a compute unit we build from FPGA resources; e.g. one GEMV PE does 16 multiply-adds per cycle. The FPGA has no fixed number of PEs |
+| **DSP, LUT, BRAM, URAM** | the FPGA's raw resources: multiplier blocks, logic cells, and two kinds of on-chip memory |
+| **II** (initiation interval) | cycles between two inputs of a pipelined loop; II = 1 means a new input every cycle |
+| **HBM channel / port** | the U55C's 16 GB HBM memory is split into 32 channels of ~14.4 GB/s; a kernel *port* is one 512-bit connection to a channel |
+| **host** | the CPU computer the FPGA card is plugged into, and the program on it that drives the kernels |
+| **software simulation** | running the kernel's C++ on the CPU to check correctness |
+| **RTL co-simulation** | simulating the circuit produced by synthesis, cycle by cycle |
+| **hardware emulation** | simulating the circuit inside the full U55C platform with an HBM model |
+| **hardware build** | link + Vivado implementation into a `.xclbin` FPGA image |
+| **dataflow** | tasks run at the same time and stream data to each other |
+| **temporal** | operations run one after another on shared hardware; here: one kernel at a time |
+| **spatial** | each operation gets its own hardware and they all run at once, connected by streams; the planned next design |
+| **baseline** | the current design (dataflow inside kernels, temporal between them), the reference for later designs |
+| **prefill / decode** | processing the whole prompt at once / producing one token at a time (§1) |

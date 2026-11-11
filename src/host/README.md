@@ -7,7 +7,14 @@
   is always on the host.
 * `host_main.cpp` — prompt prefill (token by token through the KV cache),
   greedy generation, detokenization, `--check` against `data/output_ids.i32`.
-* `link_config.ini` — planned HBM placement for a single xclbin (not linked yet).
+* `link_config.ini` — HBM placement of every kernel port. Used by
+  `make xclbin_hw` (all kernels except the standalone residual kernel, to stay
+  within the U55C's 32 kernel ports) and, per kernel, by `make hw_emu` in
+  `kernels/<name>`.
+* `vivado/` — scripts from the ECE 8880 Lab 4 flow, used unchanged:
+  `udev_stub.c` (Vivado's license check crashes in this workspace's `libudev`;
+  the stub is loaded for Vivado only), `clkwiz_compat.tcl` (Vitis 2024.2 clock
+  fix), `kernel_util.tcl` (routed area per kernel).
 
 ```bash
 make -C src/host                                # -> build/bin/host_main (all kernels compiled for swsim)
@@ -16,7 +23,12 @@ build/bin/host_main --n=8 --check --cpu_ops=attention,gelu    # mixed FPGA/CPU
 build/bin/host_main --n=8 --check --fuse_residual=false       # standalone residual kernel
 build/bin/host_main --prompt=FILE.i32 --n=5     # your own prompt (see run_prompt.py in the top folder)
 build/bin/host_main --plan                      # print the HBM buffer plan
-build/bin/host_main --bitstream=gpt2.xclbin     # board (requires a linked xclbin; not available yet)
+
+make -C src/host xclbin_hw                      # hardware build -> build/hw/gpt2.hw.xclbin (many hours)
+make -C src/host hw_util                        # routed area per kernel, after xclbin_hw
 ```
+`host_main --bitstream=<xclbin>` is not usable for the multi-kernel image yet:
+`tapa::invoke` handles one kernel per xclbin and copies buffers on every call. A
+board run of the whole model needs an XRT host (see `PLAN.md`).
 `--check` is verification level L4 (see `tests/README.md`).
 Wall times printed in software simulation are not FPGA performance.

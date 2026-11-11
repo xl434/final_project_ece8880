@@ -1,0 +1,95 @@
+make: Entering directory '/home/coder/final_project_ece8880/kernels/layernorm'
+env -u XILINX_XRT /home/coder/final_project_ece8880/build/kernels/layernorm/tb --bitstream=/home/coder/final_project_ece8880/build/kernels/layernorm/layernorm.xo 
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+I20261111 16:05:11.440137 2596247 frt.cpp:22] Loading /home/coder/final_project_ece8880/build/kernels/layernorm/layernorm.xo
+I20261111 16:05:11.443923 2596247 tapa_fast_cosim_device.cpp:122] Running hardware simulation with TAPA fast cosim
+I1111 16:05:11.848 tapa.util:162] logging level set to INFO
+I1111 16:05:11.848 __main__:90] tapa version: 0.1.20250815
+I1111 16:05:11.849 tapa.cosim.__main__:169] TAPA fast cosim version: 0.1.20250815
+I1111 16:05:12.989 tapa.cosim.vivado:30] Vivado version: 2024.2
+I1111 16:05:12.990 tapa.cosim.__main__:257] Starting Vivado:
+I1111 16:05:12.990 tapa.cosim.__main__:258]    Command: vivado -mode batch -source run_cosim.tcl
+I1111 16:05:12.990 tapa.cosim.__main__:259]    Working directory: /tmp/tapa-fast-cosim.Lxl1GM/output/run
+I1111 16:05:12.990 tapa.cosim.__main__:260]    Stdout: /tmp/tapa-fast-cosim.Lxl1GM/output/cosim.stdout.log
+I1111 16:05:12.990 tapa.cosim.__main__:261]    Stderr: /tmp/tapa-fast-cosim.Lxl1GM/output/cosim.stderr.log
+I1111 16:06:10.038 tapa.cosim.__main__:299] Vivado simulation finished successfully
+I20261111 16:06:10.108515 2596247 tapa_fast_cosim_device.cpp:380] TAPA fast cosim finished successfully
+I20261111 16:06:10.145593 2596247 frt.cpp:22] Loading /home/coder/final_project_ece8880/build/kernels/layernorm/layernorm.xo
+I20261111 16:06:10.149161 2596247 tapa_fast_cosim_device.cpp:122] Running hardware simulation with TAPA fast cosim
+I1111 16:06:10.553 tapa.util:162] logging level set to INFO
+I1111 16:06:10.553 __main__:90] tapa version: 0.1.20250815
+I1111 16:06:10.554 tapa.cosim.__main__:169] TAPA fast cosim version: 0.1.20250815
+I1111 16:06:11.695 tapa.cosim.vivado:30] Vivado version: 2024.2
+I1111 16:06:11.696 tapa.cosim.__main__:257] Starting Vivado:
+I1111 16:06:11.697 tapa.cosim.__main__:258]    Command: vivado -mode batch -source run_cosim.tcl
+I1111 16:06:11.697 tapa.cosim.__main__:259]    Working directory: /tmp/tapa-fast-cosim.Jv0kAG/output/run
+I1111 16:06:11.697 tapa.cosim.__main__:260]    Stdout: /tmp/tapa-fast-cosim.Jv0kAG/output/cosim.stdout.log
+I1111 16:06:11.697 tapa.cosim.__main__:261]    Stderr: /tmp/tapa-fast-cosim.Jv0kAG/output/cosim.stderr.log
+I1111 16:07:08.938 tapa.cosim.__main__:299] Vivado simulation finished successfully
+I20261111 16:07:09.021921 2596247 tapa_fast_cosim_device.cpp:380] TAPA fast cosim finished successfully
+I20261111 16:07:09.061626 2596247 frt.cpp:22] Loading /home/coder/final_project_ece8880/build/kernels/layernorm/layernorm.xo
+I20261111 16:07:09.064764 2596247 tapa_fast_cosim_device.cpp:122] Running hardware simulation with TAPA fast cosim
+I1111 16:07:09.482 tapa.util:162] logging level set to INFO
+I1111 16:07:09.482 __main__:90] tapa version: 0.1.20250815
+I1111 16:07:09.483 tapa.cosim.__main__:169] TAPA fast cosim version: 0.1.20250815
+I1111 16:07:10.628 tapa.cosim.vivado:30] Vivado version: 2024.2
+I1111 16:07:10.629 tapa.cosim.__main__:257] Starting Vivado:
+I1111 16:07:10.629 tapa.cosim.__main__:258]    Command: vivado -mode batch -source run_cosim.tcl
+I1111 16:07:10.629 tapa.cosim.__main__:259]    Working directory: /tmp/tapa-fast-cosim.GZjatB/output/run
+I1111 16:07:10.629 tapa.cosim.__main__:260]    Stdout: /tmp/tapa-fast-cosim.GZjatB/output/cosim.stdout.log
+I1111 16:07:10.630 tapa.cosim.__main__:261]    Stderr: /tmp/tapa-fast-cosim.GZjatB/output/cosim.stderr.log
+I1111 16:08:07.407 tapa.cosim.__main__:299] Vivado simulation finished successfully
+I20261111 16:08:07.468729 2596247 tapa_fast_cosim_device.cpp:380] TAPA fast cosim finished successfully
+I20261111 16:08:07.506526 2596247 frt.cpp:22] Loading /home/coder/final_project_ece8880/build/kernels/layernorm/layernorm.xo
+I20261111 16:08:07.511579 2596247 tapa_fast_cosim_device.cpp:122] Running hardware simulation with TAPA fast cosim
+I1111 16:08:07.931 tapa.util:162] logging level set to INFO
+I1111 16:08:07.931 __main__:90] tapa version: 0.1.20250815
+I1111 16:08:07.931 tapa.cosim.__main__:169] TAPA fast cosim version: 0.1.20250815
+I1111 16:08:09.074 tapa.cosim.vivado:30] Vivado version: 2024.2
+I1111 16:08:09.075 tapa.cosim.__main__:257] Starting Vivado:
+I1111 16:08:09.075 tapa.cosim.__main__:258]    Command: vivado -mode batch -source run_cosim.tcl
+I1111 16:08:09.075 tapa.cosim.__main__:259]    Working directory: /tmp/tapa-fast-cosim.BRdFjs/output/run
+I1111 16:08:09.075 tapa.cosim.__main__:260]    Stdout: /tmp/tapa-fast-cosim.BRdFjs/output/cosim.stdout.log
+I1111 16:08:09.075 tapa.cosim.__main__:261]    Stderr: /tmp/tapa-fast-cosim.BRdFjs/output/cosim.stderr.log
+I1111 16:09:05.142 tapa.cosim.__main__:299] Vivado simulation finished successfully
+I20261111 16:09:05.204803 2596247 tapa_fast_cosim_device.cpp:380] TAPA fast cosim finished successfully
+I20261111 16:09:05.243441 2596247 frt.cpp:22] Loading /home/coder/final_project_ece8880/build/kernels/layernorm/layernorm.xo
+I20261111 16:09:05.246591 2596247 tapa_fast_cosim_device.cpp:122] Running hardware simulation with TAPA fast cosim
+I1111 16:09:05.656 tapa.util:162] logging level set to INFO
+I1111 16:09:05.656 __main__:90] tapa version: 0.1.20250815
+I1111 16:09:05.657 tapa.cosim.__main__:169] TAPA fast cosim version: 0.1.20250815
+I1111 16:09:06.807 tapa.cosim.vivado:30] Vivado version: 2024.2
+I1111 16:09:06.808 tapa.cosim.__main__:257] Starting Vivado:
+I1111 16:09:06.809 tapa.cosim.__main__:258]    Command: vivado -mode batch -source run_cosim.tcl
+I1111 16:09:06.809 tapa.cosim.__main__:259]    Working directory: /tmp/tapa-fast-cosim.3gxGXi/output/run
+I1111 16:09:06.809 tapa.cosim.__main__:260]    Stdout: /tmp/tapa-fast-cosim.3gxGXi/output/cosim.stdout.log
+I1111 16:09:06.809 tapa.cosim.__main__:261]    Stderr: /tmp/tapa-fast-cosim.3gxGXi/output/cosim.stderr.log
+I1111 16:10:22.259 tapa.cosim.__main__:299] Vivado simulation finished successfully
+I20261111 16:10:22.452745 2596247 tapa_fast_cosim_device.cpp:380] TAPA fast cosim finished successfully
+I20261111 16:10:22.568847 2596247 frt.cpp:22] Loading /home/coder/final_project_ece8880/build/kernels/layernorm/layernorm.xo
+I20261111 16:10:22.576128 2596247 tapa_fast_cosim_device.cpp:122] Running hardware simulation with TAPA fast cosim
+I1111 16:10:23.367 tapa.util:162] logging level set to INFO
+I1111 16:10:23.367 __main__:90] tapa version: 0.1.20250815
+I1111 16:10:23.368 tapa.cosim.__main__:169] TAPA fast cosim version: 0.1.20250815
+I1111 16:10:25.895 tapa.cosim.vivado:30] Vivado version: 2024.2
+I1111 16:10:25.896 tapa.cosim.__main__:257] Starting Vivado:
+I1111 16:10:25.898 tapa.cosim.__main__:258]    Command: vivado -mode batch -source run_cosim.tcl
+I1111 16:10:25.898 tapa.cosim.__main__:259]    Working directory: /tmp/tapa-fast-cosim.xDXnKD/output/run
+I1111 16:10:25.898 tapa.cosim.__main__:260]    Stdout: /tmp/tapa-fast-cosim.xDXnKD/output/cosim.stdout.log
+I1111 16:10:25.898 tapa.cosim.__main__:261]    Stderr: /tmp/tapa-fast-cosim.xDXnKD/output/cosim.stderr.log
+I1111 16:11:55.902 tapa.cosim.__main__:299] Vivado simulation finished successfully
+I20261111 16:11:55.976341 2596247 tapa_fast_cosim_device.cpp:380] TAPA fast cosim finished successfully
+LayerNormKernel, mode: TAPA fast cosim (RTL)
+  l00_ln1                n=768     max_abs=5.960e-08 max_rel=2.119e-06 norm_rel=9.608e-08 |ref|max=5.236e-01  PASS
+  [vs HF] l00_ln1        max_abs=5.960e-08 max_rel=2.340e-06 norm_rel=1.095e-07
+  l06_ln2                n=768     max_abs=4.768e-07 max_rel=3.311e-07 norm_rel=1.127e-07 |ref|max=2.940e+00  PASS
+  [vs HF] l06_ln2        max_abs=2.384e-07 max_rel=3.546e-07 norm_rel=6.455e-08
+  l11_ln1                n=768     max_abs=7.153e-07 max_rel=1.306e-06 norm_rel=3.267e-07 |ref|max=2.260e+00  PASS
+  [vs HF] l11_ln1        max_abs=1.192e-07 max_rel=4.077e-07 norm_rel=4.577e-08
+  ln_f                   n=768     max_abs=7.629e-05 max_rel=4.856e-07 norm_rel=3.833e-07 |ref|max=2.037e+02  PASS
+  [vs HF] ln_f           max_abs=2.289e-05 max_rel=2.398e-07 norm_rel=1.257e-07
+  rand_4rows             n=3072    max_abs=4.768e-07 max_rel=2.583e-06 norm_rel=2.216e-07 |ref|max=2.635e+00  PASS
+  rand_offset1000 vs fp64 n=768     max_abs=2.164e-05 max_rel=5.863e-04 norm_rel=1.852e-05 |ref|max=9.000e-01  PASS
+  (info) src/cpu vs fp64: max_abs=5.161e-04; kernel vs src/cpu: max_abs=4.945e-04
+layernorm: 6 passed, 0 failed -> PASS
+make: Leaving directory '/home/coder/final_project_ece8880/kernels/layernorm'

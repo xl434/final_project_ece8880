@@ -9,9 +9,10 @@ Text ↔ token conversion runs on the host CPU.
 | file | what it is | read it when |
 |---|---|---|
 | `README.md` (this file) | **how to run things**, plus a map of the folders | you want to run something |
-| [`WALKTHROUGH.md`](WALKTHROUGH.md) | **plain-language explanation** of what was done, step by step: the model, what each script does, where the code is, what each test checks | you want to understand the project |
-| [`PROGRESS_REPORT.md`](PROGRESS_REPORT.md) | **the formal course report** (the 6 required sections), with all measured numbers, the design, and risks | you need the numbers or the deliverable |
-| [`PLAN.md`](PLAN.md) | **current stage and plan**: what kind of design the baseline is, what to do now vs later, and a storyline for the presentation | you are preparing the presentation or the next stage |
+| [`WALKTHROUGH.md`](WALKTHROUGH.md) | **plain-language explanation**, step by step: the model, what each script and kernel does, where the code is, what each test checks; glossary of terms. No results | you want to understand the project |
+| [`PROGRESS_REPORT.md`](PROGRESS_REPORT.md) | **the course report** (6 required sections): analysis, design, verification, results, and why the next steps are what they are | you need the results or their explanation |
+| [`PLAN.md`](PLAN.md) | **checklist**: current state, open issues, done / to-do | you want to know what is next |
+| [`PRESENTATION.md`](PRESENTATION.md) | **slide outline** for the progress update, pointing to the report sections | you are preparing the talk |
 
 Each folder also has a short `README.md` with the exact commands for that folder.
 
@@ -64,9 +65,8 @@ To also run the **FPGA kernels**, add `--fpga`:
 ```bash
 python3 run_prompt.py "Hello world" --n 3 --fpga
 ```
-There is no FPGA board here, so the kernels run in software simulation. This is
-slow: about 1 minute per token, counting prompt tokens too. Keep the prompt and
-`--n` small.
+The kernels run in software simulation (no board run yet). This is slow: about 1
+minute per token, counting prompt tokens too. Keep the prompt and `--n` small.
 
 Logs go to `results/my_prompt/` (`cpu.log`, `fpga_swsim.log`).
 
@@ -109,12 +109,13 @@ test in `results/test_logs/`. Details of every test: `tests/README.md`.
 | 4a. one kernel, functional test | `make -C kernels/gemv swsim` (any of: gemv layernorm gelu residual attention lm_head) | seconds | printed PASS/FAIL |
 | 4b. one kernel, synthesis | `make -C kernels/gemv hls` | minutes to ~1 h | `build/kernels/gemv/` (`gemv.xo`, `work.out/report/`, `hls.log`) |
 | 4c. collect synthesis results | `python3 analysis/collect_synth.py` | seconds | `results/synthesis.md`, `.csv` |
-| 4d. one kernel, RTL co-simulation | `make -C kernels/gemv cosim` (needs 4b first) | ~2 h for gemv | printed PASS/FAIL |
-| 4e. one kernel, Vitis hardware emulation (U55C shell + HBM model) | `make -C kernels/gemv hw_emu` (needs 4b first) | link ~30+ min, then the run | `build/kernels/gemv/hw_emu_run.log` |
+| 4d. one kernel, RTL co-simulation | `make -C kernels/gemv cosim` (needs 4b first) | 4 min (residual) to ~2 h (gemv) | printed PASS/FAIL; saved logs in `results/emulation/` |
+| 4e. one kernel, Vitis hardware emulation (U55C platform + HBM model) | `make -C kernels/gemv hw_emu` (needs 4b first) | link ~30 min, run ~2 h for gemv | `build/kernels/gemv/hw_emu_run.log` |
 | 5. FPGA speed estimate (from synthesis; **not measured**) | `python3 analysis/fpga_estimate.py` | seconds | `results/fpga_estimate*.csv` |
 | 5b. report charts | `python3 analysis/figures.py` | seconds | `results/figures/` |
 | 6. whole model on kernels | `make -C src/host swsim` | ~30 min | printed tokens, PASS/FAIL |
-| 7. full hardware build, all six kernels (place-and-route, no board needed) | `make -C src/host xclbin_hw` (needs 4b for all kernels) | hours | `build/hw/` (xclbin, `reports/`, `vpp_link.log`) |
+| 7. full hardware build (link + place and route of five kernels; no board needed) | `make -C src/host xclbin_hw` (needs 4b for all kernels) | many hours | `build/hw/` (`gpt2.hw.xclbin`, `reports/`, `vpp_link.log`) |
+| 7b. routed area per kernel (after 7) | `make -C src/host hw_util` | minutes | `build/hw/util_<Kernel>.rpt` |
 
 ---
 
@@ -128,7 +129,7 @@ test in `results/test_logs/`. Details of every test: `tests/README.md`.
 | `models/` | `gpt2_124M.bin`, `gpt2_tokenizer.bin` (downloaded, see setup) |
 | `src/common/` | model sizes, weight loader, token → text decoder, comparison helpers |
 | `src/cpu/` | C++ CPU model + `cpu_main` (generate / verify / profile) |
-| `src/host/` | FPGA host program: runs the model by calling the kernels |
+| `src/host/` | FPGA host program: runs the model by calling the kernels; HBM placement (`link_config.ini`) and hardware-build scripts (`vivado/`) |
 | `kernels/<name>/` | HLS kernels, 4 files each: `kernel.h`, `kernel.cpp` (design), `tb.cpp` (testbench), `Makefile` |
 | `tests/` | **all verification**: `run_all_tests` (levels L1–L4), transformer-block test; `tests/README.md` maps every test |
 | `analysis/` | `analyze.py` (work per operator, limits), `collect_synth.py`, `fpga_estimate.py`, `figures.py` (charts) |

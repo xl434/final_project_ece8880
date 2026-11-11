@@ -1,0 +1,65 @@
+make: Entering directory '/home/coder/final_project_ece8880/kernels/gelu'
+env -u XILINX_XRT /home/coder/final_project_ece8880/build/kernels/gelu/tb --bitstream=/home/coder/final_project_ece8880/build/kernels/gelu/gelu.xo 
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+I20261111 15:59:16.072901 2582648 frt.cpp:22] Loading /home/coder/final_project_ece8880/build/kernels/gelu/gelu.xo
+I20261111 15:59:16.075109 2582648 tapa_fast_cosim_device.cpp:122] Running hardware simulation with TAPA fast cosim
+I1111 15:59:16.446 tapa.util:162] logging level set to INFO
+I1111 15:59:16.446 __main__:90] tapa version: 0.1.20250815
+I1111 15:59:16.447 tapa.cosim.__main__:169] TAPA fast cosim version: 0.1.20250815
+I1111 15:59:17.618 tapa.cosim.vivado:30] Vivado version: 2024.2
+I1111 15:59:17.619 tapa.cosim.__main__:257] Starting Vivado:
+I1111 15:59:17.619 tapa.cosim.__main__:258]    Command: vivado -mode batch -source run_cosim.tcl
+I1111 15:59:17.619 tapa.cosim.__main__:259]    Working directory: /tmp/tapa-fast-cosim.dpLxd8/output/run
+I1111 15:59:17.619 tapa.cosim.__main__:260]    Stdout: /tmp/tapa-fast-cosim.dpLxd8/output/cosim.stdout.log
+I1111 15:59:17.619 tapa.cosim.__main__:261]    Stderr: /tmp/tapa-fast-cosim.dpLxd8/output/cosim.stderr.log
+I1111 16:00:46.654 tapa.cosim.__main__:299] Vivado simulation finished successfully
+I20261111 16:00:46.721380 2582648 tapa_fast_cosim_device.cpp:380] TAPA fast cosim finished successfully
+I20261111 16:00:46.760268 2582648 frt.cpp:22] Loading /home/coder/final_project_ece8880/build/kernels/gelu/gelu.xo
+I20261111 16:00:46.762255 2582648 tapa_fast_cosim_device.cpp:122] Running hardware simulation with TAPA fast cosim
+I1111 16:00:47.133 tapa.util:162] logging level set to INFO
+I1111 16:00:47.134 __main__:90] tapa version: 0.1.20250815
+I1111 16:00:47.134 tapa.cosim.__main__:169] TAPA fast cosim version: 0.1.20250815
+I1111 16:00:48.291 tapa.cosim.vivado:30] Vivado version: 2024.2
+I1111 16:00:48.292 tapa.cosim.__main__:257] Starting Vivado:
+I1111 16:00:48.292 tapa.cosim.__main__:258]    Command: vivado -mode batch -source run_cosim.tcl
+I1111 16:00:48.292 tapa.cosim.__main__:259]    Working directory: /tmp/tapa-fast-cosim.L2AuLA/output/run
+I1111 16:00:48.292 tapa.cosim.__main__:260]    Stdout: /tmp/tapa-fast-cosim.L2AuLA/output/cosim.stdout.log
+I1111 16:00:48.292 tapa.cosim.__main__:261]    Stderr: /tmp/tapa-fast-cosim.L2AuLA/output/cosim.stderr.log
+I1111 16:02:15.860 tapa.cosim.__main__:299] Vivado simulation finished successfully
+I20261111 16:02:15.939420 2582648 tapa_fast_cosim_device.cpp:380] TAPA fast cosim finished successfully
+I20261111 16:02:15.975677 2582648 frt.cpp:22] Loading /home/coder/final_project_ece8880/build/kernels/gelu/gelu.xo
+I20261111 16:02:15.978112 2582648 tapa_fast_cosim_device.cpp:122] Running hardware simulation with TAPA fast cosim
+I1111 16:02:16.357 tapa.util:162] logging level set to INFO
+I1111 16:02:16.357 __main__:90] tapa version: 0.1.20250815
+I1111 16:02:16.358 tapa.cosim.__main__:169] TAPA fast cosim version: 0.1.20250815
+I1111 16:02:17.493 tapa.cosim.vivado:30] Vivado version: 2024.2
+I1111 16:02:17.494 tapa.cosim.__main__:257] Starting Vivado:
+I1111 16:02:17.494 tapa.cosim.__main__:258]    Command: vivado -mode batch -source run_cosim.tcl
+I1111 16:02:17.494 tapa.cosim.__main__:259]    Working directory: /tmp/tapa-fast-cosim.VSRelV/output/run
+I1111 16:02:17.494 tapa.cosim.__main__:260]    Stdout: /tmp/tapa-fast-cosim.VSRelV/output/cosim.stdout.log
+I1111 16:02:17.494 tapa.cosim.__main__:261]    Stderr: /tmp/tapa-fast-cosim.VSRelV/output/cosim.stderr.log
+I1111 16:03:44.304 tapa.cosim.__main__:299] Vivado simulation finished successfully
+I20261111 16:03:44.376941 2582648 tapa_fast_cosim_device.cpp:380] TAPA fast cosim finished successfully
+I20261111 16:03:44.415853 2582648 frt.cpp:22] Loading /home/coder/final_project_ece8880/build/kernels/gelu/gelu.xo
+I20261111 16:03:44.417752 2582648 tapa_fast_cosim_device.cpp:122] Running hardware simulation with TAPA fast cosim
+I1111 16:03:44.796 tapa.util:162] logging level set to INFO
+I1111 16:03:44.796 __main__:90] tapa version: 0.1.20250815
+I1111 16:03:44.797 tapa.cosim.__main__:169] TAPA fast cosim version: 0.1.20250815
+I1111 16:03:45.959 tapa.cosim.vivado:30] Vivado version: 2024.2
+I1111 16:03:45.960 tapa.cosim.__main__:257] Starting Vivado:
+I1111 16:03:45.960 tapa.cosim.__main__:258]    Command: vivado -mode batch -source run_cosim.tcl
+I1111 16:03:45.960 tapa.cosim.__main__:259]    Working directory: /tmp/tapa-fast-cosim.LqHWZv/output/run
+I1111 16:03:45.960 tapa.cosim.__main__:260]    Stdout: /tmp/tapa-fast-cosim.LqHWZv/output/cosim.stdout.log
+I1111 16:03:45.961 tapa.cosim.__main__:261]    Stderr: /tmp/tapa-fast-cosim.LqHWZv/output/cosim.stderr.log
+I1111 16:05:10.993 tapa.cosim.__main__:299] Vivado simulation finished successfully
+I20261111 16:05:11.058314 2582648 tapa_fast_cosim_device.cpp:380] TAPA fast cosim finished successfully
+GeluKernel, mode: TAPA fast cosim (RTL)
+  l00_gelu               n=3072    max_abs=2.384e-07 max_rel=1.238e-06 norm_rel=1.350e-07 |ref|max=3.534e+00  PASS
+  [vs HF] l00_gelu       max_abs=2.384e-07 max_rel=1.013e-06 norm_rel=9.770e-08
+  l05_gelu               n=3072    max_abs=1.192e-07 max_rel=2.216e-06 norm_rel=1.240e-07 |ref|max=1.815e+00  PASS
+  [vs HF] l05_gelu       max_abs=1.192e-07 max_rel=1.847e-06 norm_rel=9.032e-08
+  l11_gelu               n=3072    max_abs=4.768e-07 max_rel=6.147e-07 norm_rel=8.543e-08 |ref|max=6.107e+00  PASS
+  [vs HF] l11_gelu       max_abs=4.768e-07 max_rel=5.170e-07 norm_rel=6.504e-08
+  sweep_-20_20           n=4112    max_abs=4.768e-07 max_rel=1.540e-07 norm_rel=5.776e-09 |ref|max=1.999e+01  PASS
+gelu: 4 passed, 0 failed -> PASS
+make: Leaving directory '/home/coder/final_project_ece8880/kernels/gelu'

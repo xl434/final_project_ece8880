@@ -6,12 +6,17 @@
 - FP32, batch 1, greedy decoding, KV cache.
 - Tokenization runs on the host CPU.
 
-**Status.**
-- All six FPGA kernels are written, tested and synthesized.
-- The whole model running on the kernels (in simulation) reproduces Hugging Face's
-  output token for token.
-- No FPGA board is available yet, so every FPGA speed number below is an
-  **estimate** from synthesis reports. All CPU numbers are measured.
+**Main milestone: all six GPT-2 kernels are implemented, synthesized and
+verified.**
+- Each kernel passes its testbench in software simulation and in RTL
+  co-simulation of the synthesized circuit (§4.4; STATUS_COSIM_HEADER). The GEMV
+  also passes Vitis hardware emulation inside the U55C platform.
+- The whole model running on the kernels (software simulation) reproduces
+  Hugging Face's output token for token.
+- This design is the **baseline**: efficient inside each kernel, inefficient at
+  the system level (§3.5). Later designs will be compared against it.
+- No board run yet, so every FPGA speed number below is an **estimate** from
+  synthesis reports. All CPU numbers are measured.
 
 **The story of this report in five points**
 1. Generating a token means reading all ~500 MB of weights from memory while doing
@@ -22,17 +27,21 @@
    its arithmetic capability (§2).
 3. The U55C has 460 GB/s of HBM bandwidth, about 13× what the CPU gets. The kernels
    are designed around that: they stream weights from many memory channels in
-   parallel and do the math as the data flows by (§3).
+   parallel and do the math as the data flows by. Each kernel keeps its memory
+   ports busy 99–100% of the time (§3).
 4. Correctness is established in four levels, from single kernels up to the whole
    model. All 12 tests pass, and the generated tokens are identical to Hugging
    Face (§4).
-5. From the synthesis reports, the current design is estimated at **3.2–4× the
-   4-core CPU** (about 125–212 vs 39–53 tokens/s). The limit is clear: the kernels
-   use only 8 of the 32 HBM channels and run one at a time. Fixing that is the
-   main next step (§5, §6).
+5. From the synthesis reports, the baseline is estimated at **3.2–4× the
+   4-core CPU** (about 125–212 vs 39–53 tokens/s). The limit is at the system
+   level: the kernels run one at a time, pass every result through off-chip
+   memory, and use only 8 of the 32 HBM channels at once. The next design
+   coordinates the kernels with on-chip streams, a *spatial* design (§5, §6).
 
 Every number comes from a script in this repository; the source is named next to
-each chart or table. Plain-language background: [`WALKTHROUGH.md`](WALKTHROUGH.md).
+each chart or table. Background and terms (kernel, PE, II, co-simulation, …):
+[`WALKTHROUGH.md`](WALKTHROUGH.md). Checklist of done and to-do items:
+[`PLAN.md`](PLAN.md).
 
 ---
 
@@ -40,11 +49,8 @@ each chart or table. Plain-language background: [`WALKTHROUGH.md`](WALKTHROUGH.m
 
 ### 1.1 What GPT-2 computes for one token
 
-GPT-2 is a *decoder-only* transformer. "Decoder-only" describes the architecture:
-there is no separate encoder, and each token may only look at earlier tokens
-(causal attention).
-
-One token goes through 12 identical layers ("blocks"):
+GPT-2 is a decoder-only transformer (see `WALKTHROUGH.md` §1). One token goes
+through 12 identical layers ("blocks"):
 
 ```
 x = embedding(token) + position_embedding(pos)            768 numbers
@@ -268,38 +274,67 @@ math with different sizes. The residual add is folded into the GEMV's output sta
 That makes **98 kernel calls per token**. `ResidualKernel` also exists as a
 standalone kernel for testing the unfused path.
 
-### 3.2 Common design approach
+### 3.2 Common design approach and optimizations
+
+Every kernel follows the same recipe:
 
 - **Wide words.** All kernels move 512-bit words, i.e. 16 FP32 numbers, which is
   the width of one HBM port.
-- **Dataflow.** Each kernel is a small set of *tasks* (TAPA) connected by FIFO
-  streams, typically "read → compute → write". The tasks run at the same time,
-  like an assembly line, so memory reads and computation overlap.
-- **One new word per clock cycle.** Every streaming loop is pipelined at an
-  initiation interval of 1 (**II=1**): a new input word enters every cycle.
-  - A memory-bound kernel only needs to keep up with its memory ports, so the goal
-    is "never stall the stream", not "maximum arithmetic".
-  - The cycle count is then simply (number of words per port) + a small fixed
-    pipeline overhead.
+- **Dataflow inside the kernel.** Each kernel is a small set of *tasks* (TAPA)
+  connected by FIFO streams, typically "read → compute → write". The tasks run
+  at the same time, like an assembly line, so memory reads and computation
+  overlap.
+- **Pipelining at II = 1.** Every streaming loop accepts a new 512-bit word every
+  clock cycle. A memory-bound kernel only needs to keep up with its memory ports,
+  so the goal is "never stall the stream", not "maximum arithmetic". The cycle
+  count is then (words per port) + a small fixed overhead.
+- **Parallel lanes (unrolling).** The 16 values of a word are processed in
+  parallel. These inner loops sit inside pipelined loops, so HLS unrolls them
+  completely; no separate `UNROLL` pragma is needed.
+- **Array partitioning.** Small arrays that are touched every cycle (adder-tree
+  stages, per-lane accumulators, the q/k/v words of a head) are fully partitioned
+  into registers, so all 16 lanes can access them in the same cycle.
+- **Latency hiding for accumulation.** A floating-point add takes several cycles,
+  so a sum `acc += …` cannot take a new input every cycle. The kernels rotate
+  over several independent partial sums (16 interleaved rows in the GEMV and LM
+  head, 8 partial sums in LayerNorm), so each one is reused only after the
+  previous add has finished.
 
-**Temporal or dataflow? Both, at two levels.** This is the *baseline* FPGA design.
-- **Inside a kernel: dataflow.** Its tasks run at the same time and pass data
-  through FIFOs.
-- **Between kernels: temporal.** The host starts one kernel at a time (98 launches
-  per token). Each kernel writes its result to HBM, and the next one reads it back.
-  All six kernels are on the chip, but only one works at any moment.
-- **Why this choice for the first design:**
-  - Each kernel can be built, verified and synthesized alone.
-  - One GEMV serves all four weight-multiplication shapes, which saves area.
-  - The cycle counts per kernel give clean reference points for later designs.
-- **Its cost:**
-  - Idle hardware.
-  - At most 8 of 32 HBM channels active at once.
-  - Launch overhead and HBM round trips.
+| kernel | pipeline | parallel work per cycle | partitioning / storage | dataflow tasks | ports busy* |
+|---|---|---|---|---|---|
+| GEMV | II = 1 | 8 PEs × 16 multiply-adds (128) | adder trees in registers; 16 accumulators per PE in LUTRAM | ReadX → 8 × (ReadW → PE) → WriteY | 98.7% |
+| LM head | II = 1 | 8 PEs × 16 multiply-adds + running max | as GEMV, plus best value/index per row | ReadX → 8 × (ReadW → PE) → Merge | ~100% |
+| attention | II = 1 (K/V stream); head update II = 12, needed only every 48 cycles | 12 heads in parallel, each a 64-wide dot product | q, k, v and output accumulators in registers | ReadQkv → Kv → 12 × Head → Write | 99.7% |
+| LayerNorm | II = 1 | 16 values | 8 rotating partial sums in registers | Read → Core → Write | (1.4 µs call) |
+| GELU | II = 1 | 16 values, 16 `exp` units | — | Read → Core → Write | 75% |
+| residual | II = 1 | 16 values | — | Read → Add → Write | (0.2 µs call) |
 
-  §5.3 shows these are what separate the estimate from the bandwidth limit. The
-  next design is *spatial*, with specialized units connected by streams (§6,
-  [`PLAN.md`](PLAN.md)).
+\* Data words moved ÷ total cycles, from the synthesis report (GEMV: FC layer;
+attention: position 1023). For LayerNorm and residual the fixed overhead
+dominates, because a call moves only 48 words.
+
+**How much hardware this is.** An FPGA has no fixed number of PEs; it has raw
+resources (1.3 M LUTs, 9,024 DSPs, BRAM, URAM), and a PE is what we build from
+them. An FP32 multiply costs about 3 DSPs and an add about 2, so one GEMV PE
+(16 multiplies + 16 adds) uses 82 DSPs.
+
+| kernel | compute units | DSPs | share of chip DSPs |
+|---|---|---|---|
+| GEMV | 8 PEs | 684 | 7.6% |
+| LM head | 8 PEs | 640 | 7.1% |
+| attention | 12 heads | 2,460 | 27.3% |
+| LayerNorm | 1 core, 16 lanes | 166 | 1.8% |
+| GELU | 1 core, 16 lanes | 416 | 4.6% |
+| **total (without the residual kernel)** | **30 units** | **4,366** | **48%** |
+
+**What this shows.**
+- **Compute is not the limit.** The DSPs alone would allow over 100 GEMV-sized
+  PEs. We build 8 per weight kernel because each PE needs its own HBM port to be
+  fed, and the chip has 32 ports.
+- **Inside each kernel, the design is efficient.** The large kernels move a new
+  word on every port in 99–100% of their cycles.
+- **Across kernels, most hardware is idle,** because only one kernel runs at a
+  time (§3.5).
 
 ### 3.3 The kernels
 
@@ -343,6 +378,12 @@ standalone kernel for testing the unfused path.
   - Shapes: 768 values in, **one integer** out.
 - **Type:** the same matrix × vector as the GEMV, followed by a max-reduction.
 - **Design:** the same 8-PE, 16-row streaming structure as the GEMV.
+  ```
+  h ──ReadX──► broadcast to 8 PEs
+  wte port 0 ──ReadW──► PE 0 (dot products + running best per row) ─┐
+     ...                                                            ├─► Merge ──► {token ID, logit}
+  wte port 7 ──ReadW──► PE 7 ───────────────────────────────────────┘
+  ```
   - Instead of writing each logit out, every PE keeps a running "best value and its
     index" for each of its rows.
   - A final merge picks the overall winner. Ties go to the lowest index, the same
@@ -350,6 +391,8 @@ standalone kernel for testing the unfused path.
   - The vocabulary is padded to 50,304 rows so it divides evenly among the PEs.
     The padded rows are masked out; otherwise their logit of 0 would beat GPT-2's
     real logits, which are around −108.
+  - The token ID and its logit are written into one 2-value output buffer, so
+    the kernel needs one memory port fewer (§3.4).
 - **Cost:** 50,304·768 / 128 = 301,824 cycles + 135 = **1.0 ms**. This is the
   single largest kernel call.
 
@@ -399,6 +442,10 @@ standalone kernel for testing the unfused path.
   
   Sums use a 16-input adder tree plus 8 rotating partial sums (the same
   latency-hiding trick as the GEMV).
+  ```
+  x ──ReadX──► Core: pass 1 Σx → μ;  pass 2 Σ(x−μ)² → σ²;  pass 3 (x−μ)/σ·γ+β ──► Write ──► y
+               (row buffered on chip; γ, β loaded once)
+  ```
 - **Cost:** 420 cycles = 1.4 µs.
 
 #### GELU (`kernels/gelu`)
@@ -409,13 +456,22 @@ standalone kernel for testing the unfused path.
   - Shapes: 3072 → 3072.
 - **Type:** purely **elementwise**; no element depends on another.
 - **Design:** 16 values per cycle through a pipelined arithmetic chain.
+  ```
+  x ──Read──► Core: 16 lanes, each u = √(2/π)(x+0.044715x³), y = x/(1+e^(−2u)) ──► Write ──► y
+  ```
 - **Cost:** 257 cycles = 0.9 µs, versus about 1 ms on the CPU.
 
 #### Residual (`kernels/residual`)
 
 - **Math:** `y = a + b`. Shapes: 768 + 768 → 768.
 - **Type:** elementwise.
-- **Design:** 16 additions per cycle. In the normal flow this add is done inside
+- **Design:** 16 additions per cycle.
+  ```
+  a ──Read──┐
+            ├─► Add (16 lanes) ──► Write ──► y
+  b ──Read──┘
+  ```
+  In the normal flow this add is done inside
   the GEMV's output stage instead, so this kernel is only used for the unfused test
   configuration.
 - **Cost:** 61 cycles.
@@ -424,8 +480,9 @@ standalone kernel for testing the unfused path.
 
 The U55C's 16 GB of HBM is split into 32 *pseudo-channels*, each about 14.4 GB/s.
 Each kernel port is placed on its own channel, so streams never compete for one
-channel. The plan is in `src/host/link_config.ini`; it is written but not yet
-linked (§6).
+channel. The plan is in `src/host/link_config.ini`. It has been linked into the
+U55C platform: for the GEMV in hardware emulation, and for all kernels in the
+full hardware build (§5.4).
 
 | data | channels | why |
 |---|---|---|
@@ -436,6 +493,61 @@ linked (§6).
 
 This plan uses 19 of the 32 channels, and at most 8 at any moment. That is the
 main reason for the gap between the estimate and the 460 GB/s bound (§5.3).
+
+**A hard limit found while linking: 32 memory ports.** Every `tapa::mmap`
+argument becomes its own AXI port. On the U55C, all kernel ports go through one
+HBM interconnect (HMSS) with **32** connections for kernels, even when several
+ports share a channel. The first link attempt failed: the six kernels had 36
+ports (GEMV 12, LM head 11, attention 4, LayerNorm 4, residual 3, GELU 2). Two
+changes bring the design to exactly 32:
+- The standalone residual kernel (3 ports) is left out of the hardware build.
+  The normal flow adds the residual inside the GEMV.
+- The LM head writes its token ID and logit into one output buffer instead of
+  two (11 → 10 ports). All its tests were re-run and pass.
+
+This limit matters for the next design too: more ports for the weights means
+fewer ports for everything else.
+
+### 3.5 System level: how the kernels work together (the baseline)
+
+**Dataflow inside each kernel, temporal between kernels.**
+
+```
+ time ──►
+ host:  launch LN ─ launch GEMV(QKV) ─ launch Attention ─ launch GEMV(proj) ─ … (98 launches per token)
+ FPGA:  [LN busy]   [GEMV busy      ]  [Attention busy ]  [GEMV busy      ]
+        others idle  others idle        others idle        others idle
+ HBM:   every kernel reads its inputs from HBM and writes its result back;
+        the next kernel reads that result again
+```
+
+- **Inside a kernel: dataflow.** Its tasks run at the same time and pass data
+  through FIFOs (§3.2).
+- **Between kernels: temporal.** The host starts one kernel at a time. Each kernel
+  writes its result to HBM, and the next one reads it back. All kernels are on
+  the chip, but only one works at any moment.
+- **Why this is the first design:**
+  - Each kernel can be built, verified and synthesized alone.
+  - One GEMV serves all four weight-multiplication shapes, which saves area.
+  - It gives clean reference points (cycles per kernel, tokens/s) for later
+    designs. It is the **baseline** they will be compared with.
+
+**What the system-level cost actually is.** The off-chip traffic of a token is
+dominated by the weights (495 MB) and the KV cache (up to 76 MB). These must be
+read for every token in any design, because they do not fit on chip. The
+intermediate results that go to HBM and back are only about **1.3 MB per token,
+0.23% of the traffic**. So the cost of the round trips is not their volume. It
+is what they force:
+1. **Serialization.** Each kernel must finish and write its result before the
+   next can start, so only one kernel works at a time. The others, and their
+   memory ports, sit idle.
+2. **Few active channels.** While the GEMV runs, only its 8 weight channels
+   stream (attention: only 2). The bandwidth bound assumes all 32.
+3. **98 launches per token,** each with host overhead.
+
+§5.3 shows these three are what separate the estimate (≈ 20% of the bandwidth
+bound) from the bound. The next design addresses them with a better
+system-level dataflow (§6).
 
 ---
 
@@ -515,12 +627,22 @@ Face by L1.
 | attention | layers 0, 6, 11 at position 5 with the Hugging Face cache | position 0 (output must equal v); position 1023 with large scores (full context, softmax stability); checks that the new cache row is written and nothing else changes |
 | LM head | the real final hidden state with the real vocabulary matrix | two identical rows (tie → lower index); maximum in the last real row 50,256 (boundary); the real case also checks that padded rows are masked |
 
-**Three ways to run the same testbench** (`kernels/<name>/tb.cpp`):
-- **Software simulation** (`make swsim`): the kernel's C++ runs on the CPU. Fast;
-  used by all tests.
-- **RTL co-simulation** (`make cosim`): the circuit generated by synthesis is
-  simulated cycle by cycle. Slow, but it checks the real hardware.
-- **Board** (`--bitstream=*.xclbin`): not available yet.
+**Four ways to run the same testbench** (`kernels/<name>/tb.cpp`), each closer
+to the real hardware:
+- **Software simulation** (`make swsim`): the kernel's C++ runs on the CPU. Fast
+  (seconds); used by all tests, including the whole model.
+- **RTL co-simulation** (`make cosim`, TAPA fast cosim, the course labs'
+  "hardware emulation"): the circuit generated by synthesis is simulated cycle by
+  cycle, with simple memory models. Minutes to hours per kernel.
+- **Vitis hardware emulation** (`make hw_emu`): the circuit is linked into the
+  real U55C platform with the HBM placement from `link_config.ini`, and simulated
+  together with the shell and an HBM model. Hours per kernel.
+- **Board** (`--bitstream=*.xclbin`): not run yet.
+
+Running the whole model as RTL is not practical (one token is about 1.4 M
+cycles plus 98 launches; days of simulation). The standard approach, used here,
+is: every kernel as RTL on real and edge-case inputs, and the whole model in
+software simulation.
 
 ### 4.4 Results
 
@@ -540,9 +662,29 @@ The errors are far inside the tolerance:
   reaches 2.4 × 10⁻⁵, still 4× inside.
 - The worst error in a whole layer (L3) is 6.7 × 10⁻⁷.
 
-In addition, the GEMV was run in **RTL co-simulation**: 6/6 cases pass, with the
-same errors as in software simulation (`results/cosim_gemv.log`, 2 h 14 min). So
-the synthesized circuit is correct, not just the C++.
+**What ran at which level:**
+
+| | software simulation | RTL co-simulation | Vitis hardware emulation |
+|---|---|---|---|
+| GEMV | 6/6 pass | 6/6 pass (2 h 14 min) | 6/6 pass |
+| LM head | 6/6 pass | COSIM_LM_HEAD | — |
+| attention | 10/10 pass | COSIM_ATTENTION | — |
+| LayerNorm | 6/6 pass | 6/6 pass (7 min) | — |
+| GELU | 4/4 pass | 4/4 pass (6 min) | — |
+| residual | 3/3 pass | 3/3 pass (4 min) | — |
+| one layer (L3) | 20/20 values, layers 0 and 11 | not practical | — |
+| whole model (L4) | 32/32 tokens | not practical | — |
+
+The RTL runs give the same errors as software simulation, so the synthesized
+circuits compute the same results as the C++.
+
+**RTL co-simulation found real bugs that software simulation could not.** In the
+attention and LM-head kernels, a task argument was named `pos` and `port`.
+Vitis HLS renames ports with those names (`pos_r`, `port_r`), but TAPA's
+generated top level still connected `pos` and `port`, so the RTL did not even
+elaborate. Software simulation and the HLS report showed nothing wrong. The
+arguments were renamed (`cur_pos`, `pe`), all tests re-run, and both kernels
+re-synthesized.
 
 ---
 
@@ -552,8 +694,8 @@ the synthesized circuit is correct, not just the C++.
 
 `make hls` in each kernel folder turns the C++ into a circuit with Vitis HLS
 2024.2, for the U55C chip at a 300 MHz target. `analysis/collect_synth.py`
-gathers the reports. These are HLS **estimates**: the full place-and-route has not
-been run.
+gathers the reports. These are HLS **estimates**; the place-and-route results
+come from the hardware build (§5.4).
 
 | kernel | latency measured for | cycles | time at 300 MHz | worst II | est. max clock | LUT | FF | DSP | BRAM |
 |---|---|---|---|---|---|---|---|---|---|
@@ -626,63 +768,77 @@ What it shows, compared with the 8-thread CPU:
   
   These are design choices of this stage, not hardware limits (§6).
 
-### 5.4 Simulation and emulation runs
+### 5.4 Hardware build (place and route)
 
-| run | what it shows | result |
-|---|---|---|
-| whole model, all kernels, software simulation | the kernels compute GPT-2 correctly end to end | 32/32 tokens identical to Hugging Face; text: *"The FPGA is a joint venture between the FPGA and the National Science Foundation. …"* |
-| GEMV, RTL co-simulation of the synthesized circuit | the generated hardware is correct, not just the C++ | 6/6 cases pass |
-| your own prompt (`run_prompt.py`) | correctness beyond the fixed test prompt | e.g. "Hello world" → identical tokens on Hugging Face, CPU and kernels |
+`make -C src/host xclbin_hw` links the five kernels of the hardware build into
+the U55C platform with the HBM plan, then runs Vivado synthesis, placement and
+routing. It answers what HLS can only estimate: does the baseline fit and route
+on the chip, and at what clock?
 
-The simulation runs take about 30 minutes for 32 tokens. That is the cost of
-simulating hardware on a CPU; it says nothing about FPGA speed.
+**Status:** HW_BUILD_STATUS
 
----
+Getting the build to run needed three fixes, each found by a failed attempt:
+1. **Port limit:** the design had 36 memory ports, the U55C allows 32 (§3.4).
+2. **Tool crash:** Vivado 2024.2 crashes in its license check (in `libudev`) on
+   this workspace. The fix is the one from the ECE 8880 Lab 4 flow: a stub
+   `libudev` loaded only for Vivado (`src/host/vivado/`).
+3. **Port names:** the `pos`/`port` renames found by RTL co-simulation (§4.4).
 
 ## 6. Issues, risks and next steps
 
 ### Risks
 
-1. **No hardware numbers yet.** All FPGA speeds are estimates. Two things can only
-   be learned on the board or after the full place-and-route: the real HBM
-   efficiency and the launch overhead. Whether the clock still meets 300 MHz is
-   known only after place-and-route.
-2. **Launch overhead.** 98 kernel calls per token: at 10–50 µs each, that is 1–5 ms
-   per token, comparable to the compute time itself.
-3. **Host copies.** In the current host program, `tapa::invoke` copies buffers on
-   every call. On the board, weights and the KV cache must stay in device memory,
-   allocated once.
-4. **Routing.** Attention is the largest kernel (27% of DSPs). Placing all six
-   kernels plus the platform shell on one chip may be hard to route across the
-   chip's regions (SLRs).
+1. **No board numbers yet.** All FPGA speeds are estimates. The real HBM
+   efficiency and the launch overhead can only be measured on the board.
+2. **Routing and clock.** Whether all five kernels plus the platform shell route
+   across the chip's three regions (SLRs) at 300 MHz is known only when the full
+   hardware build finishes. Attention is the largest kernel (27% of DSPs).
+3. **Launch overhead.** 98 kernel calls per token: at 10–50 µs each, that is
+   1–5 ms per token, comparable to the compute time itself.
+4. **Host program not board-ready.** `tapa::invoke` copies buffers on every call,
+   and TAPA's runtime drives one kernel per FPGA image. A board run of the whole
+   model needs a host written with XRT that keeps weights and the KV cache in
+   HBM, allocated once.
+5. **The 32-port limit (§3.4)** constrains every future design.
 
-### Next steps, in priority order (each tied to a limit found above)
+### Next steps
 
-1. **Build the full FPGA image and run on hardware.** That means `v++` link with
-   the HBM plan, then hardware emulation, then the board. This replaces the
-   estimates with measurements.
-2. **Use more HBM channels** (§5.3, reason 1). Widen the GEMV and LM head from 8
-   to 16 or more ports; the port count is already a parameter. Split the KV cache
-   by head groups across 4–6 channels, so attention reads in parallel. This is the
-   biggest expected gain.
-3. **Spatial design: fewer launches** (§5.3, reasons 2–3). Replace the
-   temporal baseline with specialized units connected directly by on-chip
-   streams, following the spatial architecture of Chen et al., *Understanding the
-   Potential of FPGA-Based Spatial Acceleration for Large Language Model
-   Inference* (ACM TRETS 2024). For batch-1 decode this cannot exceed the
-   bandwidth limit, because all weights must still be read for every token. It
-   can get close to it by keeping all channels busy and prefetching the next
-   layer's weights (28 MB per layer fits on chip).
-   Also:  Combine a whole layer, or the whole
-   decode step, into one kernel with on-chip FIFOs between stages. This removes
-   most of the 98 launches and the HBM round trips of the small vectors.
-4. **Real prefill.** Add a matrix × matrix mode that reuses each weight across all
-   prompt tokens. Prefill is compute-bound (§1.4), so it needs a different
-   balance of compute and bandwidth.
-5. **Lower precision (later stage, not started).** FP16 or INT8 weights halve or
-   quarter the bytes per token. For a memory-bound workload, that roughly doubles
-   or quadruples the speed limit. The verification chain built here would be
-   reused.
+**The baseline stays as the reference point.** It is verified end to end, and
+its per-kernel cycle counts and estimated tokens/s are what later designs will
+be compared against.
+
+The main finding of this stage is that the kernels are efficient but the
+system-level dataflow is not (§3.5). So the next design changes how the kernels
+are coordinated, not the kernels' arithmetic:
+
+1. **Measure the two unknowns on the board, cheaply.** Build the GEMV alone and
+   run its existing testbench on the board. This measures the real bandwidth per
+   HBM channel and the launch overhead, and calibrates the estimates.
+2. **Spatial design: a better system-level dataflow.** Replace the temporal
+   baseline with specialized units for the operators of a layer, connected
+   directly by on-chip streams instead of through HBM. This follows Chen et al.,
+   *Understanding the Potential of FPGA-Based Spatial Acceleration for Large
+   Language Model Inference* (ACM TRETS 2024, arXiv:2312.15159). For this
+   workload:
+   - **Keep all channels busy:** spend the 32 ports on the large streams
+     (weights, KV cache). The small operators (LayerNorm, GELU, residual)
+     receive their inputs through streams and need no ports.
+   - **No launches and no round trips:** one long-running design instead of 98
+     calls per token.
+   - **Overlap operators** where the math allows (e.g. FC → GELU → FC-proj), and
+     **prefetch the next layer's weights** (28 MB per layer fits on chip).
+   - **Spread the KV cache over several ports** by head groups, so attention
+     reads faster and its 12 heads are busy more than 25% of the time.
+
+   Batch-1 decode stays memory-bound: all weights must still be read for every
+   token, so the bound of about 800 tokens/s (§1.4) does not move. The spatial
+   design's goal is to get close to it, from about 20% today.
+3. **Real prefill.** A matrix × matrix mode that reuses each weight across all
+   prompt tokens. Prefill is compute-bound (§1.4), which is where a spatial design
+   gains the most.
+4. **Lower precision (later stage, not started).** FP16 or INT8 weights halve or
+   quarter the bytes per token, which roughly doubles or quadruples the speed
+   limit of a memory-bound workload. The verification chain built here is reused.
 
 ### Deviations from the original plan
 
@@ -693,6 +849,9 @@ simulating hardware on a CPU; it says nothing about FPGA speed.
 - **LayerNorm offset-1000 test.** It is checked against an FP64 reference. The
   CPU's own FP32 result is less accurate than the kernel's there: errors of
   5 × 10⁻⁴ versus 2 × 10⁻⁵.
-- **"Emulation"** so far is TAPA RTL co-simulation of the GEMV, not Vitis hardware
-  emulation. The HBM link configuration has not been run through `v++` yet.
+- **Hardware emulation** is per kernel (RTL co-simulation of all kernels, Vitis
+  hardware emulation of the GEMV), not of the whole model (§4.3).
+- **Interface changes for the hardware build:** the LM head has one output buffer
+  instead of two, and the standalone residual kernel is not in the hardware build
+  (§3.4).
 - **Prefill on the FPGA** runs token by token through the decode kernels.

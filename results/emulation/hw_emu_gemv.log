@@ -1,0 +1,114 @@
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+I20261110 22:38:16.663054 1710260 frt.cpp:22] Loading /home/coder/final_project_ece8880/build/kernels/gemv/gemv.hw_emu.xclbin
+
+****** configutil v2024.2 (64-bit)
+  **** SW Build 5239630 on 2024-11-10-11:19:46
+  **** Start of session at: Tue Nov 10 22:38:22 2026
+    ** Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+    ** Copyright 2022-2024 Advanced Micro Devices, Inc. All Rights Reserved.
+
+INFO: [ConfigUtil 60-895]   Target platform: /opt/xilinx/platforms/xilinx_u55c_gen3x16_xdma_3_202210_1/xilinx_u55c_gen3x16_xdma_3_202210_1.xpfm
+INFO: [ConfigUtil 60-1578]   This platform contains Xilinx Shell Archive '/opt/xilinx/platforms/xilinx_u55c_gen3x16_xdma_3_202210_1/hw/hw.xsa'
+INFO: [ConfigUtil 60-1032] Extracting hardware platform to /tmp/.frt.1000/emconfig.xilinx_u55c_gen3x16_xdma_3_202210_1.1710260
+emulation configuration file `emconfig.json` is created in /tmp/.frt.1000/emconfig.xilinx_u55c_gen3x16_xdma_3_202210_1.1710260 directory 
+I20261110 22:38:28.689414 1710260 xilinx_opencl_device.cpp:298] Running hardware simulation with Xilinx OpenCL
+I20261110 22:38:29.045706 1710260 opencl_device.cpp:177] Found platform: Xilinx
+I20261110 22:38:29.046115 1710260 xilinx_opencl_device.cpp:102] Found device: xilinx_u55c_gen3x16_xdma_3_202210_1 (bdf=0000:00:00.0)
+I20261110 22:38:29.046124 1710260 opencl_device.cpp:184] Using xilinx_u55c_gen3x16_xdma_3_202210_1 (bdf=0000:00:00.0)
+GemvKernel: 8 ports x 16 rows, mode: Vitis hardware emulation
+INFO: [HW-EMU 05] Path of the simulation directory : /tmp/.frt.1000/.run/1710260/hw_emu/device0/binary_0/behav_waveform/xsim
+INFO: [HW-EMU 01] Hardware emulation runs simulation underneath. Using a large data set will result in long simulation times. It is recommended that a small dataset is used for faster execution. The flow uses approximate models for Global memories and interconnect and hence the performance data generated is approximate.
+configuring embedded scheduler mode
+scheduler config ert(1), dataflow(0), slots(16), cudma(0), cuisr(0), cdma(0), cus(1)
+INFO: [HW-EMU 06-0] Waiting for the simulator process to exit
+INFO: [HW-EMU 06-1] All the simulator processes exited successfully
+INFO: [HW-EMU 07-0] Please refer the path "/tmp/.frt.1000/.run/1710260/hw_emu/device0/binary_0/behav_waveform/xsim/simulate.log" for more detailed simulation infos, errors and warnings.
+I20261110 23:35:25.317654 1710260 frt.cpp:22] Loading /home/coder/final_project_ece8880/build/kernels/gemv/gemv.hw_emu.xclbin
+I20261110 23:35:30.510797 1710260 xilinx_opencl_device.cpp:298] Running hardware simulation with Xilinx OpenCL
+I20261110 23:35:30.510830 1710260 opencl_device.cpp:177] Found platform: Xilinx
+l00_qkv: C=768 OC=2304 residual=0 (3352856162 us)
+  l00_qkv                n=2304    max_abs=9.537e-07 max_rel=3.022e-06 norm_rel=1.335e-07 |ref|max=8.059e+00  PASS
+  [vs HF] l00_qkv        max_abs=4.530e-06 max_rel=5.538e-06 norm_rel=4.334e-07
+SIMULATION EXITED
+I20261110 23:35:30.511003 1710260 xilinx_opencl_device.cpp:102] Found device: xilinx_u55c_gen3x16_xdma_3_202210_1 (bdf=0000:00:00.0)
+I20261110 23:35:30.511010 1710260 opencl_device.cpp:184] Using xilinx_u55c_gen3x16_xdma_3_202210_1 (bdf=0000:00:00.0)
+INFO: [HW-EMU 05] Path of the simulation directory : /tmp/.frt.1000/.run/1710260/hw_emu/device0/binary_1/behav_waveform/xsim
+configuring embedded scheduler mode
+scheduler config ert(1), dataflow(0), slots(16), cudma(0), cuisr(0), cdma(0), cus(1)
+INFO: [HW-EMU 06-0] Waiting for the simulator process to exit
+INFO: [HW-EMU 06-1] All the simulator processes exited successfully
+INFO: [HW-EMU 07-0] Please refer the path "/tmp/.frt.1000/.run/1710260/hw_emu/device0/binary_1/behav_waveform/xsim/simulate.log" for more detailed simulation infos, errors and warnings.
+I20261110 23:55:27.965580 1710260 frt.cpp:22] Loading /home/coder/final_project_ece8880/build/kernels/gemv/gemv.hw_emu.xclbin
+I20261110 23:55:28.876751 1710260 xilinx_opencl_device.cpp:298] Running hardware simulation with Xilinx OpenCL
+I20261110 23:55:28.876781 1710260 opencl_device.cpp:177] Found platform: Xilinx
+l05_attproj+res: C=768 OC=768 residual=1 (1104594622 us)
+  l05_attproj+res        n=768     max_abs=4.768e-07 max_rel=7.218e-07 norm_rel=4.267e-08 |ref|max=3.137e+01  PASS
+  [vs HF] l05_res1       max_abs=1.907e-06 max_rel=1.372e-06 norm_rel=1.007e-07
+SIMULATION EXITED
+SIMULATION EXITED
+I20261110 23:55:28.877038 1710260 xilinx_opencl_device.cpp:102] Found device: xilinx_u55c_gen3x16_xdma_3_202210_1 (bdf=0000:00:00.0)
+I20261110 23:55:28.877046 1710260 opencl_device.cpp:184] Using xilinx_u55c_gen3x16_xdma_3_202210_1 (bdf=0000:00:00.0)
+INFO: [HW-EMU 05] Path of the simulation directory : /tmp/.frt.1000/.run/1710260/hw_emu/device0/binary_2/behav_waveform/xsim
+
+ server socket name is	/tmp/coder/device0_2_1710260
+configuring embedded scheduler mode
+scheduler config ert(1), dataflow(0), slots(16), cudma(0), cuisr(0), cdma(0), cus(1)
+INFO: [HW-EMU 06-0] Waiting for the simulator process to exit
+INFO: [HW-EMU 06-1] All the simulator processes exited successfully
+INFO: [HW-EMU 07-0] Please refer the path "/tmp/.frt.1000/.run/1710260/hw_emu/device0/binary_2/behav_waveform/xsim/simulate.log" for more detailed simulation infos, errors and warnings.
+I20261111 00:32:38.717319 1710260 frt.cpp:22] Loading /home/coder/final_project_ece8880/build/kernels/gemv/gemv.hw_emu.xclbin
+I20261111 00:32:39.193825 1710260 xilinx_opencl_device.cpp:298] Running hardware simulation with Xilinx OpenCL
+I20261111 00:32:39.193846 1710260 opencl_device.cpp:177] Found platform: Xilinx
+l11_fc: C=768 OC=3072 residual=0 (2200597062 us)
+  l11_fc                 n=3072    max_abs=1.907e-06 max_rel=2.254e-06 norm_rel=1.504e-07 |ref|max=7.879e+00  PASS
+  [vs HF] l11_fch        max_abs=6.676e-06 max_rel=8.315e-06 norm_rel=4.719e-07
+SIMULATION EXITED
+SIMULATION EXITED
+I20261111 00:32:39.194103 1710260 xilinx_opencl_device.cpp:102] Found device: xilinx_u55c_gen3x16_xdma_3_202210_1 (bdf=0000:00:00.0)
+I20261111 00:32:39.194110 1710260 opencl_device.cpp:184] Using xilinx_u55c_gen3x16_xdma_3_202210_1 (bdf=0000:00:00.0)
+INFO: [HW-EMU 05] Path of the simulation directory : /tmp/.frt.1000/.run/1710260/hw_emu/device0/binary_3/behav_waveform/xsim
+
+ server socket name is	/tmp/coder/device0_3_1710260
+configuring embedded scheduler mode
+scheduler config ert(1), dataflow(0), slots(16), cudma(0), cuisr(0), cdma(0), cus(1)
+INFO: [HW-EMU 06-0] Waiting for the simulator process to exit
+INFO: [HW-EMU 06-1] All the simulator processes exited successfully
+INFO: [HW-EMU 07-0] Please refer the path "/tmp/.frt.1000/.run/1710260/hw_emu/device0/binary_3/behav_waveform/xsim/simulate.log" for more detailed simulation infos, errors and warnings.
+I20261111 01:01:38.692452 1710260 frt.cpp:22] Loading /home/coder/final_project_ece8880/build/kernels/gemv/gemv.hw_emu.xclbin
+I20261111 01:01:39.165650 1710260 xilinx_opencl_device.cpp:298] Running hardware simulation with Xilinx OpenCL
+I20261111 01:01:39.165671 1710260 opencl_device.cpp:177] Found platform: Xilinx
+l11_fcproj+res: C=3072 OC=768 residual=1 (1714129015 us)
+  l11_fcproj+res         n=768     max_abs=1.526e-05 max_rel=1.213e-06 norm_rel=7.524e-08 |ref|max=2.011e+02  PASS
+  [vs HF] l11_res2       max_abs=6.104e-05 max_rel=2.272e-06 norm_rel=2.426e-07
+SIMULATION EXITED
+SIMULATION EXITED
+I20261111 01:01:39.165956 1710260 xilinx_opencl_device.cpp:102] Found device: xilinx_u55c_gen3x16_xdma_3_202210_1 (bdf=0000:00:00.0)
+I20261111 01:01:39.165967 1710260 opencl_device.cpp:184] Using xilinx_u55c_gen3x16_xdma_3_202210_1 (bdf=0000:00:00.0)
+INFO: [HW-EMU 05] Path of the simulation directory : /tmp/.frt.1000/.run/1710260/hw_emu/device0/binary_4/behav_waveform/xsim
+
+ server socket name is	/tmp/coder/device0_4_1710260
+configuring embedded scheduler mode
+scheduler config ert(1), dataflow(0), slots(16), cudma(0), cuisr(0), cdma(0), cus(1)
+INFO: [HW-EMU 06-0] Waiting for the simulator process to exit
+INFO: [HW-EMU 06-1] All the simulator processes exited successfully
+INFO: [HW-EMU 07-0] Please refer the path "/tmp/.frt.1000/.run/1710260/hw_emu/device0/binary_4/behav_waveform/xsim/simulate.log" for more detailed simulation infos, errors and warnings.
+I20261111 01:02:01.720086 1710260 frt.cpp:22] Loading /home/coder/final_project_ece8880/build/kernels/gemv/gemv.hw_emu.xclbin
+I20261111 01:02:02.199216 1710260 xilinx_opencl_device.cpp:298] Running hardware simulation with Xilinx OpenCL
+I20261111 01:02:02.199240 1710260 opencl_device.cpp:177] Found platform: Xilinx
+rand_min_shape: C=16 OC=128 residual=0 (5000383 us)
+  rand_min_shape         n=128     max_abs=4.768e-07 max_rel=1.612e-06 norm_rel=9.506e-08 |ref|max=5.095e+00  PASS
+SIMULATION EXITED
+SIMULATION EXITED
+I20261111 01:02:02.199523 1710260 xilinx_opencl_device.cpp:102] Found device: xilinx_u55c_gen3x16_xdma_3_202210_1 (bdf=0000:00:00.0)
+I20261111 01:02:02.199532 1710260 opencl_device.cpp:184] Using xilinx_u55c_gen3x16_xdma_3_202210_1 (bdf=0000:00:00.0)
+INFO: [HW-EMU 05] Path of the simulation directory : /tmp/.frt.1000/.run/1710260/hw_emu/device0/binary_5/behav_waveform/xsim
+
+ server socket name is	/tmp/coder/device0_5_1710260
+configuring embedded scheduler mode
+scheduler config ert(1), dataflow(0), slots(16), cudma(0), cuisr(0), cdma(0), cus(1)
+INFO: [HW-EMU 06-0] Waiting for the simulator process to exit
+INFO: [HW-EMU 06-1] All the simulator processes exited successfully
+INFO: [HW-EMU 07-0] Please refer the path "/tmp/.frt.1000/.run/1710260/hw_emu/device0/binary_5/behav_waveform/xsim/simulate.log" for more detailed simulation infos, errors and warnings.
+rand_long_mixed+res: C=3072 OC=256 residual=1 (572041578 us)
+  rand_long_mixed+res    n=256     max_abs=9.766e-04 max_rel=1.704e-05 norm_rel=3.134e-07 |ref|max=2.610e+03  PASS
+gemv: 6 passed, 0 failed -> PASS

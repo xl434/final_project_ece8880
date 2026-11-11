@@ -23,14 +23,14 @@ void AttnReadQkv(tapa::mmap<float_v16> qkv, tapa::ostreams<float_v16, kKNH>& q_s
   }
 }
 
-// Append the new K/V row, then stream rows 0..pos to the heads.
+// Append the new K/V row, then stream rows 0..cur_pos to the heads.
 void AttnKv(tapa::mmap<float_v16> kcache, tapa::mmap<float_v16> vcache,
             tapa::istream<float_v16>& knew_s, tapa::istream<float_v16>& vnew_s,
             tapa::ostreams<float_v16, kKNH>& k_s, tapa::ostreams<float_v16, kKNH>& v_s,
-            int layer, int pos) {
+            int layer, int cur_pos) {
   float_v16 kn[kCWords], vn[kCWords];
   const int layer_base = layer * kKMaxT * kCWords;
-  const int new_base = layer_base + pos * kCWords;
+  const int new_base = layer_base + cur_pos * kCWords;
   for (int w = 0; w < kCWords; ++w) {
 #pragma HLS PIPELINE II=1
     kn[w] = knew_s.read();
@@ -41,9 +41,9 @@ void AttnKv(tapa::mmap<float_v16> kcache, tapa::mmap<float_v16> vcache,
     vn[w] = vnew_s.read();
     vcache[new_base + w] = vn[w];
   }
-  // cached rows 0..pos-1: one K word and one V word per cycle
+  // cached rows 0..cur_pos-1: one K word and one V word per cycle
   int w = 0;
-  for (int i = 0; i < pos * kCWords; ++i) {
+  for (int i = 0; i < cur_pos * kCWords; ++i) {
 #pragma HLS PIPELINE II=1
 #pragma HLS LOOP_TRIPCOUNT min=0 max=kTcRows avg=kTcRows
     const float_v16 k = kcache[layer_base + i];
@@ -55,7 +55,7 @@ void AttnKv(tapa::mmap<float_v16> kcache, tapa::mmap<float_v16> vcache,
       }
     w = (w == kCWords - 1) ? 0 : w + 1;
   }
-  // row pos: the new token, forwarded from on-chip buffers
+  // row cur_pos: the new token, forwarded from on-chip buffers
   for (int w2 = 0; w2 < kCWords; ++w2) {
 #pragma HLS PIPELINE II=1
     for (int h = 0; h < kKNH; ++h)
@@ -66,10 +66,10 @@ void AttnKv(tapa::mmap<float_v16> kcache, tapa::mmap<float_v16> vcache,
   }
 }
 
-// One head: online softmax over rows 0..pos.
+// One head: online softmax over rows 0..cur_pos.
 //   m' = max(m, s); l' = l e^(m-m') + e^(s-m'); acc' = acc e^(m-m') + e^(s-m') v
 void AttnHead(tapa::istream<float_v16>& q_s, tapa::istream<float_v16>& k_s,
-              tapa::istream<float_v16>& v_s, tapa::ostream<float_v16>& o_s, int pos) {
+              tapa::istream<float_v16>& v_s, tapa::ostream<float_v16>& o_s, int cur_pos) {
   float_v16 q[kHeadWords];
   for (int w = 0; w < kHeadWords; ++w) {
 #pragma HLS PIPELINE II=1
@@ -80,7 +80,7 @@ void AttnHead(tapa::istream<float_v16>& q_s, tapa::istream<float_v16>& k_s,
 #pragma HLS ARRAY_PARTITION variable=acc type=complete
   for (int w = 0; w < kHeadWords; ++w) acc[w] = 0.0f;
 
-  for (int t = 0; t <= pos; ++t) {
+  for (int t = 0; t <= cur_pos; ++t) {
 #pragma HLS PIPELINE
 #pragma HLS LOOP_TRIPCOUNT min=1 max=kKMaxT avg=kKMaxT
     float_v16 kv[kHeadWords], vv[kHeadWords];
@@ -120,7 +120,7 @@ void AttnWrite(tapa::istreams<float_v16, kKNH>& o_s, tapa::mmap<float_v16> attn_
 
 void AttentionKernel(tapa::mmap<float_v16> qkv, tapa::mmap<float_v16> kcache,
                      tapa::mmap<float_v16> vcache, tapa::mmap<float_v16> attn_out, int layer,
-                     int pos) {
+                     int cur_pos) {
   tapa::streams<float_v16, kKNH, kHeadWords> q_s("q_s");
   tapa::stream<float_v16, kCWords> knew_s("knew_s");
   tapa::stream<float_v16, kCWords> vnew_s("vnew_s");
@@ -129,7 +129,7 @@ void AttentionKernel(tapa::mmap<float_v16> qkv, tapa::mmap<float_v16> kcache,
   tapa::streams<float_v16, kKNH, kHeadWords> o_s("o_s");
   tapa::task()
       .invoke(AttnReadQkv, qkv, q_s, knew_s, vnew_s)
-      .invoke(AttnKv, kcache, vcache, knew_s, vnew_s, k_s, v_s, layer, pos)
-      .invoke<tapa::join, kKNH>(AttnHead, q_s, k_s, v_s, o_s, pos)
+      .invoke(AttnKv, kcache, vcache, knew_s, vnew_s, k_s, v_s, layer, cur_pos)
+      .invoke<tapa::join, kKNH>(AttnHead, q_s, k_s, v_s, o_s, cur_pos)
       .invoke(AttnWrite, o_s, attn_out);
 }

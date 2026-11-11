@@ -1,6 +1,6 @@
 # results/
 
-The progress report built from these files is `../PROGRESS_REPORT.md`; the plain-language guide is `../WALKTHROUGH.md`.
+Outputs of the scripts and runs. They are explained in `../PROGRESS_REPORT.md`.
 
 | file | produced by |
 |---|---|
@@ -9,7 +9,8 @@ The progress report built from these files is `../PROGRESS_REPORT.md`; the plain
 | `analysis/` | `analysis/analyze.py` (tables, CSVs, roofline and CPU-breakdown plots) |
 | `synthesis.csv`, `synthesis.md` | `analysis/collect_synth.py` (after `make hls` in each kernel) |
 | `test_summary.md`, `test_logs/` | `tests/run_all_tests` |
-| `cosim_gemv.log` | `make -C kernels/gemv cosim` (TAPA fast RTL cosimulation, ~2.2 h) |
+| `emulation/cosim_<kernel>.log` | `make -C kernels/<kernel> cosim` (TAPA RTL co-simulation of the synthesized kernel) |
+| `emulation/hw_emu_gemv.log` | `make -C kernels/gemv hw_emu` (Vitis hardware emulation in the U55C platform) |
 | `fpga_estimate.csv`, `fpga_estimate_ops.csv` | `analysis/fpga_estimate.py` (ESTIMATE of decode time from HLS cycles, per token / per operator) |
 | `cpu_peaks.csv` | `make -C src/cpu peaks` (measured CPU memory bandwidth and FP32 peak) |
 | `figures/` | `analysis/figures.py` (charts used in `PROGRESS_REPORT.md`) |

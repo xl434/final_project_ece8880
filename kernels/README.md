@@ -7,7 +7,7 @@
 | `gelu/` | `GeluKernel` | tanh-GELU as x / (1 + exp(-2u)), 16 lanes |
 | `residual/` | `ResidualKernel` | y = a + b, 16 lanes |
 | `attention/` | `AttentionKernel` | KV-cache append + 12 heads in parallel, online softmax |
-| `lm_head/` | `LmHeadKernel` | wte GEMV fused with argmax (8 ports), only the token ID leaves the chip |
+| `lm_head/` | `LmHeadKernel` | wte GEMV fused with argmax (8 ports); only {token ID, logit} leaves the chip, in one output buffer |
 
 `common/kernel_common.h` (types, dimensions, adder trees), `common/host_pack.h`
 (weight packing for GEMV/LM head), `common/tb_util.h` (testbench helpers),
@@ -24,8 +24,8 @@ In each `kernels/<name>/`:
 ```bash
 make swsim     # build the testbench and run it in TAPA software simulation (compares with src/cpu)
 make hls       # synthesis: tapa compile -> build/kernels/<name>/<name>.xo, reports in .../work.out/report
-make cosim     # TAPA fast RTL cosimulation of the .xo (the labs' "hwemu")
-make hw_emu    # Vitis hardware emulation: v++ link into the U55C shell (HBM placement
+make cosim     # TAPA fast RTL co-simulation of the .xo (the labs' "hardware emulation")
+make hw_emu    # Vitis hardware emulation: v++ link into the U55C platform (HBM placement
                # from src/host/link_config.ini), then run the testbench on the emulated card
 make cleanall  # delete build/kernels/<name>/
 ```
@@ -35,3 +35,12 @@ random edge cases and prints `PASS`/`FAIL` (exit status 0/1). After `make hls`,
 `python3 analysis/collect_synth.py` gathers all reports into `results/synthesis.csv`.
 GEMV / LM-head port counts can be changed with `-DGEMV_PORTS=N` / `-DLM_PORTS=N`
 (add to `KERNEL_DEFS` in the Makefile).
+
+Two naming pitfalls, both found the hard way:
+- Do not name a kernel or task argument `pos` or `port`: Vitis HLS renames such
+  ports (`pos_r`, `port_r`) and TAPA's generated RTL no longer connects. Software
+  simulation does not show this; `make cosim` does.
+- TAPA rejects an `mmap` argument named `out`.
+
+Every `mmap` argument is one AXI port; the U55C allows 32 kernel ports in one
+FPGA image (`PROGRESS_REPORT.md` §3.4).

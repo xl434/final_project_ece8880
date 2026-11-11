@@ -35,8 +35,9 @@ The runner builds what it needs, then prints PASS/FAIL per test. It writes
 | `L4_e2e_32tok_all_kernels` | 4 | 32 tokens, every operator on kernels (skipped by `--quick`) |
 
 Beyond these levels:
-- **RTL co-simulation** of a synthesized kernel runs the same L2 testbench against
-  the generated hardware: `make -C kernels/gemv cosim`. It is slow (~2 h for the
-  GEMV), so it is not part of the runner.
+- **RTL co-simulation** and **Vitis hardware emulation** of a synthesized kernel run
+  the same L2 testbench against the generated hardware: `make -C kernels/<name>
+  cosim` and `make -C kernels/<name> hw_emu`. They take minutes to hours, so they
+  are not part of the runner. Logs: `results/emulation/`.
 - **Your own prompt** through Hugging Face, the CPU model and (optionally) the
   kernels: `python3 run_prompt.py "text" [--fpga]` in the top folder.

@@ -26,8 +26,10 @@ static bool better(float v, int i, float bv, int bi) {
   return v > bv || (v == bv && i < bi);
 }
 
-// PE `port` (from tapa::seq()) owns row blocks b = g * kLmPorts + port.
-void LmPE(int port, tapa::istream<float_v16>& x_s, tapa::istream<float_v16>& w_s,
+// PE `pe` (from tapa::seq()) owns row blocks b = g * kLmPorts + pe. (Not named
+// `port`: Vitis HLS renames such an argument to port_r, which breaks TAPA's
+// RTL wiring.)
+void LmPE(int pe, tapa::istream<float_v16>& x_s, tapa::istream<float_v16>& w_s,
           tapa::ostream<float>& val_s, tapa::ostream<int>& idx_s) {
   float_v16 xbuf[kCWords];
   for (int i = 0; i < kCWords; ++i) {
@@ -44,7 +46,7 @@ void LmPE(int port, tapa::istream<float_v16>& x_s, tapa::istream<float_v16>& w_s
     bv[r] = -INFINITY;
     bi[r] = kKVp;
   }
-  int w = 0, r = 0, row_base = port * kLmRows;
+  int w = 0, r = 0, row_base = pe * kLmRows;
   for (int it = 0; it < kIters; ++it) {
 #pragma HLS PIPELINE II=1
 #pragma HLS DEPENDENCE variable=acc type=inter dependent=false

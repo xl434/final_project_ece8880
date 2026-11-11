@@ -1,0 +1,10 @@
+I1111 16:11:58.223 tapa.util:162] logging level set to INFO
+I1111 16:11:58.224 __main__:90] tapa version: 0.1.20250815
+I1111 16:11:58.224 tapa.cosim.__main__:169] TAPA fast cosim version: 0.1.20250815
+I1111 16:12:00.892 tapa.cosim.vivado:30] Vivado version: 2024.2
+I1111 16:12:00.894 tapa.cosim.__main__:257] Starting Vivado:
+I1111 16:12:00.894 tapa.cosim.__main__:258]    Command: vivado -mode batch -source run_cosim.tcl
+I1111 16:12:00.894 tapa.cosim.__main__:259]    Working directory: /tmp/tapa-fast-cosim.n24Qge/output/run
+I1111 16:12:00.894 tapa.cosim.__main__:260]    Stdout: /tmp/tapa-fast-cosim.n24Qge/output/cosim.stdout.log
+I1111 16:12:00.895 tapa.cosim.__main__:261]    Stderr: /tmp/tapa-fast-cosim.n24Qge/output/cosim.stderr.log
+E1111 16:13:16.059 tapa.cosim.__main__:294] Vivado simulation failed with error code 1
