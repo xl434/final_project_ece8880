@@ -1,0 +1,26 @@
+# Downloaded model files (~500 MB); see README.md "One-time setup"
+models/
+# Everything compilers / HLS generate; rebuilt by make
+build/
+# Reference repositories (each is its own git repo); see third_party/README.md
+third_party/*
+!third_party/README.md
+# Output of run_prompt.py for your own prompts
+results/my_prompt/
+# Python / editor leftovers
+__pycache__/
+*.pyc
+.vscode/
+.idea/
+*.swp
+
+# Vitis link caches and logs written next to the Makefile
+.ipcache/
+.Xil/
+*.jou
+v++*.log
+xcd.log
+
+# TAPA writes logs next to the kernel sources
+kernels/*/work.out/
+models
